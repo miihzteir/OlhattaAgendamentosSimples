@@ -102,19 +102,14 @@
   .painel-secao h2{margin:0 0 4px;font-size:15px;color:var(--verde-pinho);}
   .painel-secao .desc{font-size:12px;color:var(--texto-claro);margin:0 0 16px;}
 
-  .painel-secao.destaque-metas{background:linear-gradient(180deg,#fbf3e9 0%,var(--branco) 130px);border:1px solid var(--marrom-claro);border-left:5px solid var(--marrom);box-shadow:0 4px 18px rgba(138,90,52,.12);}
-  .painel-secao.destaque-metas h2{color:var(--marrom-escuro);font-size:17px;}
-
-  .painel-secao.destaque-pendentes{background:#fff9ef;border:1px solid #e7cfa1;border-left:5px solid #c98a1f;}
-  .painel-secao.destaque-pendentes h2{color:#8a5c10;font-size:16px;display:flex;align-items:center;gap:8px;}
-  #pendentes-contagem{background:#c98a1f;color:var(--creme);font-size:12px;font-weight:700;padding:2px 9px;border-radius:20px;}
-  .pendente-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 4px;border-bottom:1px solid #efe0c2;font-size:13px;flex-wrap:wrap;}
+  #pendentes-contagem{color:var(--texto-claro);font-size:14px;font-weight:500;}
+  .pendente-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--borda);font-size:13px;flex-wrap:wrap;}
   .pendente-item:last-child{border-bottom:none;}
   .pendente-info b{color:var(--texto);}
   .pendente-info span{display:block;color:var(--texto-claro);font-size:12px;margin-top:2px;}
-  .pendente-item button{background:var(--branco);border:1px solid #c98a1f;color:#8a5c10;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;}
-  .pendente-item button:hover{background:#c98a1f;color:var(--creme);}
-  .vazio-pendentes{font-size:13px;color:var(--texto-claro);padding:6px 4px;}
+  .pendente-item button{background:none;border:none;color:var(--marrom);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;padding:4px 0;text-decoration:underline;}
+  .pendente-item button:hover{color:var(--marrom-escuro);}
+  .vazio-pendentes{font-size:13px;color:var(--texto-claro);padding:6px 0;}
 
   /* barra semanal */
   .semanas{display:flex;align-items:flex-end;gap:10px;height:110px;padding-top:10px;}
@@ -124,18 +119,20 @@
   .semana-col .rotulo{font-size:11px;color:var(--texto-claro);margin-top:6px;}
 
   /* metas */
-  .metas-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;}
-  .meta-item{border:1px solid var(--borda);border-top:3px solid var(--marrom);border-radius:12px;padding:16px;background:var(--branco);box-shadow:0 2px 8px rgba(138,90,52,.06);}
-  .meta-item h4{margin:0 0 10px;font-size:13px;color:var(--marrom-escuro);text-transform:uppercase;letter-spacing:.3px;}
-  .meta-item .campos{display:flex;gap:8px;margin-bottom:10px;}
-  .meta-item .campos label{flex:1;font-size:11px;color:var(--texto-claro);}
-  .meta-item .campos input{width:100%;padding:6px 8px;border:1px solid var(--borda);border-radius:6px;font-size:13px;margin-top:3px;}
-  .barra-progresso{height:14px;border-radius:8px;background:var(--creme-escuro);overflow:hidden;position:relative;margin:8px 0 6px;}
-  .barra-progresso .preenchido{height:100%;background:linear-gradient(90deg,var(--marrom-claro),var(--marrom));border-radius:8px;transition:.3s;}
+  .metas-grid{display:flex;flex-direction:column;}
+  .meta-linha{padding:14px 0;border-bottom:1px solid var(--borda);}
+  .meta-linha:last-child{border-bottom:none;}
+  .meta-cabeca{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
+  .meta-titulo{font-size:13px;font-weight:700;color:var(--texto);text-transform:uppercase;letter-spacing:.3px;}
+  .meta-valor{font-size:16px;font-weight:800;color:var(--marrom-escuro);}
+  .meta-de{font-size:13px;font-weight:500;color:var(--texto-claro);}
+  .barra-progresso{height:10px;border-radius:8px;background:var(--creme-escuro);overflow:hidden;position:relative;margin:8px 0;}
+  .barra-progresso .preenchido{height:100%;background:var(--marrom);border-radius:8px;transition:.3s;}
   .barra-progresso .marcador-super{position:absolute;top:-3px;bottom:-3px;width:3px;background:var(--verde-pinho);}
-  .meta-atual{font-size:15px;color:var(--texto);margin-top:4px;}
-  .meta-atual b{font-size:19px;color:var(--marrom-escuro);}
-  .meta-status{font-size:13px;font-weight:700;margin-top:4px;}
+  .meta-rodape{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-top:10px;}
+  .meta-rodape label{font-size:11px;color:var(--texto-claro);display:block;}
+  .meta-rodape input.input-meta{display:block;width:88px;padding:6px 8px;border:1px solid var(--borda);border-radius:6px;font-size:13px;margin-top:3px;}
+  .meta-status{font-size:13px;font-weight:700;margin-left:auto;}
   .meta-status.ok{color:var(--verde-ok);}
   .meta-status.super{color:var(--marrom);}
   .meta-status.andamento{color:var(--texto-claro);}
@@ -193,9 +190,9 @@
 
   /* anual */
   .anual-destaques{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
-  .destaque{border:1px solid var(--borda);border-radius:12px;padding:12px 14px;background:var(--creme);}
-  .destaque .rot{font-size:10px;text-transform:uppercase;color:var(--texto-claro);font-weight:700;letter-spacing:.4px;}
-  .destaque .val{font-size:16px;font-weight:800;color:var(--verde-pinho);margin-top:4px;text-transform:capitalize;}
+  .stat-tile{border:1px solid var(--borda);border-radius:12px;padding:12px 14px;background:var(--creme);}
+  .stat-tile .rot{font-size:10px;text-transform:uppercase;color:var(--texto-claro);font-weight:700;letter-spacing:.4px;}
+  .stat-tile .val{font-size:16px;font-weight:800;color:var(--verde-pinho);margin-top:4px;text-transform:capitalize;}
   .anual-tabela{margin-top:6px;}
   .barra-mes-wrap{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
   .barra-mes-wrap .mes-nome{width:36px;font-size:11px;color:var(--texto-claro);text-transform:uppercase;font-weight:700;}
@@ -212,6 +209,11 @@
     .linha2{grid-template-columns:1fr;}
     nav.abas{top:60px;}
     .nav-mes .rotulo{min-width:140px;font-size:16px;}
+    .grid-cards{grid-template-columns:1fr 1fr;gap:10px;}
+    .card{padding:12px 14px;}
+    .card h3{font-size:10.5px;}
+    .card .num{font-size:24px;}
+    .painel-secao{padding:14px 16px;}
   }
 </style>
 </head>
@@ -265,13 +267,13 @@
 
       <div class="grid-cards" id="cards-resumo"></div>
 
-      <div class="painel-secao destaque-pendentes" id="painel-pendentes" hidden>
-        <h2>⏳ Contatos pendentes <span id="pendentes-contagem"></span></h2>
+      <div class="painel-secao" id="painel-pendentes" hidden>
+        <h2>Contatos pendentes <span id="pendentes-contagem"></span></h2>
         <div id="lista-pendentes"></div>
       </div>
 
-      <div class="painel-secao destaque-metas">
-        <h2>🎯 Metas do mês</h2>
+      <div class="painel-secao">
+        <h2>Metas do mês</h2>
         <div class="metas-grid" id="metas-grid"></div>
       </div>
 

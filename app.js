@@ -471,7 +471,7 @@ function renderCards(stats) {
       <div class="linhas">${htmlClinicas || '<div class="sub">Sem clínicas cadastradas</div>'}</div>
     </div>
     <div class="card">
-      <h3>Motivos (desmarque/não agendou)</h3>
+      <h3>Motivos</h3>
       <div class="linhas">${htmlMotivos}</div>
     </div>
   `;
@@ -523,19 +523,21 @@ function renderMetas(mesKey, stats) {
       : '';
 
     return `
-      <div class="meta-item">
-        <h4>${campo.titulo}</h4>
-        <div class="campos">
-          <label>Meta<input type="number" min="0" step="1" data-mkey="${mesKey}" data-campo="meta${campo.key}" value="${meta||''}" class="input-meta"></label>
-          <label>Supermeta<input type="number" min="0" step="1" data-mkey="${mesKey}" data-campo="super${campo.key}" value="${super_||''}" class="input-meta"></label>
-          ${campoAtualManual}
+      <div class="meta-linha">
+        <div class="meta-cabeca">
+          <span class="meta-titulo">${campo.titulo}</span>
+          <span class="meta-valor">${campo.key==='Produtos' ? 'R$ '+atual.toFixed(2) : atual}${meta?`<span class="meta-de"> / ${campo.key==='Produtos'?'R$ '+meta.toFixed(2):meta}</span>`:''}</span>
         </div>
         <div class="barra-progresso">
           <div class="preenchido" style="width:${pctMeta}%"></div>
           ${pctSuper !== null ? `<div class="marcador-super" style="left:${pctSuper}%"></div>` : ''}
         </div>
-        <div class="meta-atual">Até o momento: <b>${campo.key==='Produtos' ? 'R$ '+atual.toFixed(2) : atual}</b>${meta?` / meta ${campo.key==='Produtos'?'R$ '+meta.toFixed(2):meta}`:''}</div>
-        <div class="meta-status ${statusClasse}">${statusTxt}</div>
+        <div class="meta-rodape">
+          <label>Meta<input type="number" min="0" step="1" data-mkey="${mesKey}" data-campo="meta${campo.key}" value="${meta||''}" class="input-meta"></label>
+          <label>Supermeta<input type="number" min="0" step="1" data-mkey="${mesKey}" data-campo="super${campo.key}" value="${super_||''}" class="input-meta"></label>
+          ${campoAtualManual}
+          <span class="meta-status ${statusClasse}">${statusTxt}</span>
+        </div>
       </div>
     `;
   }).join('');
@@ -883,11 +885,11 @@ function renderAnual() {
     const maisD = destaque(meses, d.campo, 'max');
     const menosD = destaque(meses, d.campo, 'min');
     return `
-      <div class="destaque">
+      <div class="stat-tile">
         <div class="rot">Mês com mais ${d.label}</div>
         <div class="val">${maisD ? MESES_ABREV[Number(maisD.mesKey.slice(5,7))-1].toLowerCase() + ' (' + maisD[d.campo] + ')' : '—'}</div>
       </div>
-      <div class="destaque">
+      <div class="stat-tile">
         <div class="rot">Mês com menos ${d.label}</div>
         <div class="val">${menosD ? MESES_ABREV[Number(menosD.mesKey.slice(5,7))-1].toLowerCase() + ' (' + menosD[d.campo] + ')' : '—'}</div>
       </div>
