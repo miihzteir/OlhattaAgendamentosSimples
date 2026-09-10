@@ -7,12 +7,12 @@
 // ============================================================
 
 const firebaseConfig = {
-  apiKey: "COLE_AQUI",
-  authDomain: "COLE_AQUI.firebaseapp.com",
-  projectId: "COLE_AQUI",
-  storageBucket: "COLE_AQUI.appspot.com",
-  messagingSenderId: "COLE_AQUI",
-  appId: "COLE_AQUI"
+  apiKey: "AIzaSyDwdZOeYIBJMZ_fTkyVJ-FI8PFpz_4KrME",
+  authDomain: "olhattaagendamentossimples.firebaseapp.com",
+  projectId: "olhattaagendamentossimples",
+  storageBucket: "olhattaagendamentossimples.firebasestorage.app",
+  messagingSenderId: "382113487409",
+  appId: "1:382113487409:web:6fea56c3970ba45dc71310"
 };
 
 // E-mails que podem acessar o sistema (tem que bater com o firestore.rules também)
