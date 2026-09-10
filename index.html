@@ -153,30 +153,39 @@
 
   .tabela-wrap{overflow-x:auto;border:1px solid var(--borda);border-radius:var(--raio);background:var(--branco);}
   table{width:100%;border-collapse:collapse;min-width:980px;}
-  th,td{padding:10px 12px;text-align:left;font-size:13px;border-bottom:1px solid var(--borda);white-space:nowrap;}
-  th{background:var(--creme-escuro);color:var(--verde-pinho);font-size:11px;text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0;}
+  th,td{padding:12px;text-align:left;font-size:13px;line-height:1.4;border-bottom:1px solid var(--borda);white-space:nowrap;vertical-align:top;}
+  th{background:linear-gradient(160deg,var(--verde-pinho) 0%,var(--verde-pinho-escuro) 100%);color:var(--creme);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:13px 12px;position:sticky;top:0;}
   tr:hover td{background:var(--creme);}
   td.obs-cel{white-space:normal;max-width:180px;color:var(--texto-claro);}
-  td.acoes{display:flex;gap:6px;}
+  td.obs-cel > span:first-child{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .detalhe-sub{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;font-style:italic;}
+  td.acoes{display:flex;gap:6px;align-items:flex-start;}
+  td:has(> .chk-agendado){text-align:center;}
   .vazio{padding:40px 20px;text-align:center;color:var(--texto-claro);font-size:14px;}
   tr.linha-hoje td{background:rgba(138,90,52,.08);}
   tr.linha-hoje td:first-child{box-shadow:inset 3px 0 0 var(--marrom);}
   .tag-hoje{display:inline-flex;align-items:center;line-height:1;margin-left:6px;padding:4px 8px;border-radius:20px;font-size:10px;font-weight:700;background:var(--marrom);color:var(--creme);vertical-align:middle;white-space:nowrap;}
   .badge-alerta{display:block;margin-top:2px;font-size:11px;font-weight:700;color:#a9660f;}
-  .chk-agendado{width:18px;height:18px;accent-color:var(--marrom);cursor:pointer;}
+  .chk-agendado{width:18px;height:18px;accent-color:var(--marrom);cursor:pointer;margin-top:2px;}
 
   /* modal */
   .overlay{position:fixed;inset:0;background:rgba(15,43,32,.55);display:flex;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto;z-index:50;}
   .modal{background:var(--branco);border-radius:16px;max-width:560px;width:100%;padding:26px 26px 22px;box-shadow:0 20px 50px rgba(0,0,0,.3);}
   .modal h2{margin:0 0 4px;color:var(--verde-pinho);font-size:18px;}
   .modal .fechar{float:right;background:none;border:none;font-size:20px;color:var(--texto-claro);}
-  .campo{margin-bottom:13px;}
+  .campo{margin-bottom:13px;position:relative;}
   .campo label{display:block;font-size:12px;font-weight:700;color:var(--texto-claro);margin-bottom:5px;}
   .campo input,.campo select,.campo textarea{width:100%;padding:10px 11px;border:1px solid var(--borda);border-radius:8px;font-size:14px;background:var(--creme);}
   .campo textarea{resize:vertical;min-height:56px;}
   .linha2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .modal-acoes{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
   .historico-contato{background:var(--azul-claro);border:1px solid #c7dae8;border-radius:10px;padding:10px 13px;font-size:12.5px;color:var(--azul);margin:-2px 0 13px;line-height:1.5;}
+  .sugestoes-tel{position:absolute;top:100%;left:0;right:0;background:var(--branco);border:1px solid var(--borda);border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,.14);z-index:6;max-height:210px;overflow-y:auto;margin-top:4px;}
+  .sugestoes-tel button{display:block;width:100%;text-align:left;background:none;border:none;padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--borda);color:var(--texto);}
+  .sugestoes-tel button:last-child{border-bottom:none;}
+  .sugestoes-tel button:hover{background:var(--creme);}
+  .sugestoes-tel button b{color:var(--marrom-escuro);}
+  .sugestoes-tel button span{display:block;font-size:11px;color:var(--texto-claro);margin-top:1px;}
   .detalhe-sub{color:var(--texto-claro);font-style:italic;}
 
   /* categorias */
@@ -331,10 +340,13 @@
     <h2 id="entry-titulo">Novo contato</h2>
     <form id="form-entry">
       <div class="linha2">
-        <div class="campo"><label>Nome</label><input type="text" id="f-nome" required></div>
-        <div class="campo"><label>Telefone</label><input type="text" id="f-telefone" list="lista-telefones" placeholder="(00) 00000-0000"></div>
+        <div class="campo"><label>Nome</label><input type="text" id="f-nome"></div>
+        <div class="campo">
+          <label>Telefone</label>
+          <input type="text" id="f-telefone" required placeholder="(00) 00000-0000" autocomplete="off">
+          <div class="sugestoes-tel" id="sugestoes-tel" hidden></div>
+        </div>
       </div>
-      <datalist id="lista-telefones"></datalist>
       <div class="historico-contato" id="historico-contato" hidden></div>
       <div class="linha2">
         <div class="campo"><label>Animal</label><input type="text" id="f-animal"></div>

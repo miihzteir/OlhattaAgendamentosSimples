@@ -19,7 +19,7 @@ const entriesCol = docRef.collection('entries');
 
 // ---------- Categorias padrão (usadas na 1ª criação do documento) ----------
 const CATEGORIAS_PADRAO = {
-  clinicas: ['Olhatta', 'Pet Center', 'Espaço Pet', 'Equibem', 'Domicílio'],
+  clinicas: ['Olhatta', 'Pet Center', 'Espaço Pet', 'Equibem', 'Domicílio', 'Volante'],
   cidades: ['Sinop', 'Lucas do Rio Verde'],
   tipos: ['Consulta', 'Acompanhamento', 'Cirurgia'],
   motivos: ['Sem Resposta', 'Sem Interesse', 'Sem Deslocamento', 'Sem Condições', 'Outro Profissional', 'Fora de Horário', 'Não Compareceu', 'Óbito']
@@ -313,16 +313,23 @@ function popularSelects() {
   optNovoMotivo.textContent = '+ Adicionar novo motivo...';
   document.getElementById('f-motivo').appendChild(optNovoMotivo);
 
-  // datalist com telefones já cadastrados, pra facilitar reconhecer quem já ligou antes
-  const vistos = new Set();
-  const opcoes = [];
-  state.entries.forEach(e => {
-    const tel = (e.telefone || '').trim();
-    if (tel && !vistos.has(tel)) { vistos.add(tel); opcoes.push({ tel, nome: e.nome || '' }); }
-  });
-  const datalist = document.getElementById('lista-telefones');
-  datalist.innerHTML = opcoes.map(o => `<option value="${escapeHtml(o.tel)}">${escapeHtml(o.nome)}</option>`).join('');
 }
+
+// Clínica define a cidade automaticamente (quando a clínica tem cidade fixa)
+const CLINICA_CIDADE_AUTO = {
+  'Olhatta': 'Sinop',
+  'Equibem': 'Sinop',
+  'Volante': 'Sinop',
+  'Pet Center': 'Lucas do Rio Verde',
+  'Espaço Pet': 'Lucas do Rio Verde'
+};
+document.getElementById('f-clinica').addEventListener('change', () => {
+  const clinica = document.getElementById('f-clinica').value;
+  const cidadeAuto = CLINICA_CIDADE_AUTO[clinica];
+  if (cidadeAuto && state.categorias.cidades.includes(cidadeAuto)) {
+    document.getElementById('f-cidade').value = cidadeAuto;
+  }
+});
 
 // ============================================================
 // HISTÓRICO INTELIGENTE DE CONTATO REPETIDO
@@ -367,6 +374,45 @@ function atualizarPainelHistorico() {
     Último: ${formatarData(ultimo.dataAgendamento || ultimo.dataContato)} · ${escapeHtml(ultimo.status||'')}${ultimo.clinica ? ' · ' + escapeHtml(ultimo.clinica) : ''}
   `;
 }
+
+// Sugestões de telefone conforme digita (mesmo com só o DDD ou parte do número) —
+// ajuda a reconhecer quem já contatou antes sem precisar digitar o número inteiro.
+function buscarSugestoesTelefone(digitado) {
+  const alvo = normalizarTelefone(digitado);
+  if (alvo.length < 2) return [];
+  const vistos = new Set();
+  const lista = [];
+  ordenarPorDataRecente(state.entries).forEach(e => {
+    if (editingEntryId && e.id === editingEntryId) return;
+    const tel = (e.telefone || '').trim();
+    const telNorm = normalizarTelefone(tel);
+    if (!tel || vistos.has(telNorm)) return;
+    if (telNorm.includes(alvo)) { vistos.add(telNorm); lista.push({ tel, nome: e.nome || '(sem nome)' }); }
+  });
+  return lista.slice(0, 6);
+}
+
+function renderSugestoesTelefone() {
+  const caixa = document.getElementById('sugestoes-tel');
+  const valor = document.getElementById('f-telefone').value;
+  const sugestoes = buscarSugestoesTelefone(valor);
+  if (!sugestoes.length) { caixa.hidden = true; caixa.innerHTML = ''; return; }
+  caixa.innerHTML = sugestoes.map(s => `<button type="button" data-tel="${escapeHtml(s.tel)}"><b>${escapeHtml(s.tel)}</b><span>${escapeHtml(s.nome)}</span></button>`).join('');
+  caixa.hidden = false;
+}
+
+document.getElementById('sugestoes-tel').addEventListener('mousedown', ev => {
+  const btn = ev.target.closest('button[data-tel]');
+  if (!btn) return;
+  ev.preventDefault();
+  document.getElementById('f-telefone').value = btn.dataset.tel;
+  document.getElementById('sugestoes-tel').hidden = true;
+  autopreencherPorTelefone();
+});
+document.getElementById('f-telefone').addEventListener('input', renderSugestoesTelefone);
+document.getElementById('f-telefone').addEventListener('blur', () => {
+  setTimeout(() => { document.getElementById('sugestoes-tel').hidden = true; }, 150);
+});
 
 function autopreencherPorTelefone() {
   if (editingEntryId) return; // só ajuda em contato novo, não mexe em edição
@@ -621,8 +667,8 @@ function renderTabela(mesKey) {
       <td><span class="pill ${pillClasse(e.status)}">${e.status||''}</span></td>
       <td style="text-align:center"><input type="checkbox" class="chk-agendado" data-id="${e.id}" ${jaAgendado ? 'checked' : ''} title="${jaAgendado ? 'Já agendado' : 'Marcar como agendado'}"></td>
       <td>${formatarData(e.dataAgendamento)}${ehHoje ? '<span class="tag-hoje">Hoje</span>' : ''}</td>
-      <td class="obs-cel">${escapeHtml(e.motivo||'—')}${e.detalheMotivo ? '<br><span class="detalhe-sub">'+escapeHtml(e.detalheMotivo)+'</span>' : ''}</td>
-      <td class="obs-cel">${escapeHtml(e.obs||'')}</td>
+      <td class="obs-cel" title="${escapeHtml((e.motivo||'') + (e.detalheMotivo ? ' — '+e.detalheMotivo : ''))}"><span>${escapeHtml(e.motivo||'—')}</span>${e.detalheMotivo ? '<span class="detalhe-sub">'+escapeHtml(e.detalheMotivo)+'</span>' : ''}</td>
+      <td class="obs-cel" title="${escapeHtml(e.obs||'')}"><span>${escapeHtml(e.obs||'')}</span></td>
       <td class="acoes"><button class="btn outline sm btn-editar">Editar</button></td>
     </tr>
   `;
