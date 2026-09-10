@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Importar dados antigos — Agenda Olhatta</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<style>
+  :root{
+    --verde-pinho:#1b4332;
+    --verde-pinho-escuro:#0f2b20;
+    --marrom:#8a5a34;
+    --marrom-claro:#c9a173;
+    --marrom-escuro:#6b4527;
+    --creme:#faf6ec;
+    --creme-escuro:#f1e9d8;
+    --branco:#fffdf8;
+    --texto:#2b2b26;
+    --texto-claro:#786f5c;
+    --vermelho:#b3413e;
+    --vermelho-claro:#f6e6e5;
+    --verde-ok:#3f7d54;
+    --verde-ok-claro:#e6efe8;
+    --borda:#e3dcc8;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(160deg,var(--verde-pinho) 0%,var(--verde-pinho-escuro) 100%);color:var(--texto);display:flex;align-items:center;justify-content:center;padding:24px;}
+  .card{background:var(--branco);border-radius:20px;padding:36px 32px;max-width:520px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25);}
+  h1{font-size:20px;margin:0 0 6px;color:var(--verde-pinho);}
+  p{font-size:14px;line-height:1.5;color:var(--texto-claro);margin:0 0 16px;}
+  .destaque{font-weight:700;color:var(--marrom);}
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:10px;padding:12px 20px;font-size:14px;font-weight:600;width:100%;}
+  .btn-google{background:var(--branco);border:1px solid var(--borda);color:var(--texto);display:flex;align-items:center;justify-content:center;gap:10px;}
+  .btn-marrom{background:var(--marrom);color:var(--creme);margin-top:10px;}
+  .btn-marrom:hover{background:var(--marrom-escuro);}
+  .btn-marrom:disabled{opacity:.5;cursor:default;}
+  .aviso{background:var(--creme-escuro);border:1px solid var(--borda);border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:16px;}
+  .aviso.perigo{background:var(--vermelho-claro);border-color:#e2b6b4;color:#7a2e2c;}
+  .aviso.ok{background:var(--verde-ok-claro);border-color:#bcdcc7;color:var(--verde-ok);}
+  #barra-wrap{background:var(--creme-escuro);border-radius:20px;height:10px;overflow:hidden;margin:14px 0 8px;}
+  #barra{background:var(--marrom);height:100%;width:0%;transition:width .2s;}
+  #progresso-texto{font-size:13px;color:var(--texto-claro);text-align:center;}
+  .link-voltar{display:inline-block;margin-top:16px;font-size:13px;color:var(--marrom);text-decoration:none;font-weight:600;}
+  [hidden]{display:none!important;}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>Importar dados da planilha antiga</h1>
+
+  <div id="bloco-login">
+    <p>Entra com uma conta autorizada pra importar os <span class="destaque">891 registros</span> de Janeiro a Setembro/2026 da sua planilha Excel pra dentro do Agenda Olhatta.</p>
+    <button class="btn-google" id="btn-login-google">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97L3.95 7.3C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+      Entrar com Google
+    </button>
+    <p id="login-erro" class="aviso perigo" hidden>Este e-mail não tem acesso ao sistema.</p>
+  </div>
+
+  <div id="bloco-import" hidden>
+    <p id="texto-usuario"></p>
+    <div id="aviso-existentes" class="aviso perigo" hidden></div>
+    <p>Isso vai criar <span class="destaque">891 contatos/agendamentos</span> no sistema, com as datas de contato e de agendamento originais de cada um — exatamente como estava na planilha. Motivos e cidade "Sorriso" (fora de Sinop/Lucas) também são trazidos.</p>
+    <button class="btn-marrom" id="btn-importar">Importar agora</button>
+    <div id="bloco-progresso" hidden>
+      <div id="barra-wrap"><div id="barra"></div></div>
+      <p id="progresso-texto">Importando...</p>
+    </div>
+    <div id="resultado" hidden></div>
+    <a class="link-voltar" href="index.html">← Voltar pro Agenda Olhatta</a>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="dados-import.js"></script>
+<script>
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const docRef = db.collection('olhatta').doc('agendamentos');
+const entriesCol = docRef.collection('entries');
+
+const blocoLogin = document.getElementById('bloco-login');
+const blocoImport = document.getElementById('bloco-import');
+const loginErro = document.getElementById('login-erro');
+
+document.getElementById('btn-login-google').addEventListener('click', () => {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(err => {
+    loginErro.textContent = 'Não foi possível entrar: ' + err.message;
+    loginErro.hidden = false;
+  });
+});
+
+auth.onAuthStateChanged(user => {
+  if (!user) { blocoLogin.hidden = false; blocoImport.hidden = true; return; }
+  if (!EMAILS_PERMITIDOS.includes(user.email)) {
+    loginErro.textContent = 'Este e-mail (' + user.email + ') não tem acesso ao sistema.';
+    loginErro.hidden = false;
+    auth.signOut();
+    return;
+  }
+  blocoLogin.hidden = true;
+  blocoImport.hidden = false;
+  document.getElementById('texto-usuario').textContent = 'Logada como ' + user.email + '.';
+  verificarExistentes();
+});
+
+function verificarExistentes() {
+  entriesCol.get().then(snap => {
+    if (snap.size > 0) {
+      const aviso = document.getElementById('aviso-existentes');
+      aviso.hidden = false;
+      aviso.textContent = 'Atenção: já existem ' + snap.size + ' registro(s) no sistema. Importar de novo vai DUPLICAR os dados. Só clique em importar se tiver certeza que ainda não importou a planilha.';
+    }
+  });
+}
+
+document.getElementById('btn-importar').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-importar');
+  btn.disabled = true;
+  const blocoProgresso = document.getElementById('bloco-progresso');
+  blocoProgresso.hidden = false;
+  const barra = document.getElementById('barra');
+  const texto = document.getElementById('progresso-texto');
+
+  const total = DADOS_IMPORT.length;
+  const TAMANHO_LOTE = 400;
+  let feitos = 0;
+
+  try {
+    for (let i = 0; i < total; i += TAMANHO_LOTE) {
+      const lote = DADOS_IMPORT.slice(i, i + TAMANHO_LOTE);
+      const batch = db.batch();
+      lote.forEach(dados => {
+        const ref = entriesCol.doc();
+        batch.set(ref, Object.assign({}, dados, { id: ref.id, criadoEm: new Date().toISOString(), origemImportacao: true }));
+      });
+      await batch.commit();
+      feitos += lote.length;
+      const pct = Math.round((feitos / total) * 100);
+      barra.style.width = pct + '%';
+      texto.textContent = feitos + ' / ' + total + ' importados...';
+    }
+
+    // Garante que "Sorriso" apareça nas categorias de cidade, já que tem registros lá
+    await docRef.update({ 'categorias.cidades': firebase.firestore.FieldValue.arrayUnion('Sorriso') });
+
+    texto.textContent = 'Pronto! ' + total + ' registros importados.';
+    const resultado = document.getElementById('resultado');
+    resultado.hidden = false;
+    resultado.className = 'aviso ok';
+    resultado.textContent = 'Importação concluída! Pode voltar pro Agenda Olhatta e conferir os meses.';
+  } catch (err) {
+    const resultado = document.getElementById('resultado');
+    resultado.hidden = false;
+    resultado.className = 'aviso perigo';
+    resultado.textContent = 'Deu erro na importação: ' + err.message + ' (pode tentar de novo clicando em Importar agora)';
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
