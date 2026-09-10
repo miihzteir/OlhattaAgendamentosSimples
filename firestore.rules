@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Só os e-mails autorizados da clínica podem ler e gravar os dados de agendamentos
+    // (o "=**" cobre também a subcoleção "entries" com os contatos, dentro de olhatta/agendamentos).
+    match /olhatta/{document=**} {
+      allow read, write: if request.auth != null && request.auth.token.email in [
+        'francimeryapfachini@gmail.com',
+        'draoftalmologistavet@gmail.com',
+        'miihrietz@gmail.com',
+        'miihzteir@gmail.com'
+      ];
+    }
+
+    // Bloqueia qualquer outro caminho por padrão.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

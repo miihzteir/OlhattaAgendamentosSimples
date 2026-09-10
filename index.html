@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Agenda Olhatta</title>
+<meta name="theme-color" content="#1b4332">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png">
+<style>
+  :root{
+    --verde-pinho:#1b4332;
+    --verde-pinho-escuro:#0f2b20;
+    --verde-pinho-claro:#2d6a4f;
+    --marrom:#8a5a34;
+    --marrom-claro:#c9a173;
+    --marrom-escuro:#6b4527;
+    --creme:#faf6ec;
+    --creme-escuro:#f1e9d8;
+    --branco:#fffdf8;
+    --texto:#2b2b26;
+    --texto-claro:#786f5c;
+    --vermelho:#b3413e;
+    --vermelho-claro:#f6e6e5;
+    --verde-ok:#3f7d54;
+    --verde-ok-claro:#e6efe8;
+    --azul:#3d6b91;
+    --azul-claro:#e6eef4;
+    --borda:#e3dcc8;
+    --sombra: 0 2px 12px rgba(27,67,50,.08);
+    --raio: 14px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--creme);color:var(--texto);}
+  img{max-width:100%;}
+  [hidden]{display:none!important;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select,textarea{font-family:inherit;}
+
+  /* ---------- LOGIN ---------- */
+  #tela-login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,var(--verde-pinho) 0%,var(--verde-pinho-escuro) 100%);padding:24px;}
+  .login-card{background:var(--branco);border-radius:20px;padding:40px 32px;max-width:380px;width:100%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.25);}
+  .login-card .logo{width:72px;height:72px;border-radius:18px;margin:0 auto 18px;display:block;}
+  .login-card h1{font-size:22px;margin:0 0 6px;color:var(--verde-pinho);}
+  .login-card p{color:var(--texto-claro);font-size:14px;margin:0 0 28px;}
+  .btn-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px 16px;border-radius:10px;border:1px solid var(--borda);background:var(--branco);font-size:15px;font-weight:600;color:var(--texto);transition:.15s;}
+  .btn-google:hover{border-color:var(--marrom);background:var(--creme);}
+  .login-erro{margin-top:16px;color:var(--vermelho);font-size:13px;display:none;}
+  .login-status{margin-top:16px;color:var(--texto-claro);font-size:13px;}
+
+  /* ---------- APP SHELL ---------- */
+  #app{min-height:100vh;display:none;}
+  header.topo{background:var(--verde-pinho);color:var(--creme);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;box-shadow:var(--sombra);position:sticky;top:0;z-index:20;}
+  .topo-marca{display:flex;align-items:center;gap:10px;}
+  .topo-marca img{width:36px;height:36px;border-radius:9px;}
+  .topo-marca strong{font-size:17px;letter-spacing:.2px;}
+  .topo-marca span{display:block;font-size:11px;color:rgba(250,246,236,.72);font-weight:500;}
+  .topo-acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .topo-acoes .email{font-size:12px;color:var(--marrom-claro);margin-right:6px;}
+  .sync-status{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;}
+  .sync-status::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;}
+  .sync-status.ok{color:#a9e2bf;background:rgba(63,125,84,.25);}
+  .sync-status.pendente{color:var(--marrom-claro);background:rgba(138,90,52,.28);}
+  .sync-status.erro{color:#f3b3af;background:rgba(179,65,62,.3);}
+  .icon-btn{width:36px;height:36px;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:var(--creme);display:flex;align-items:center;justify-content:center;font-size:16px;transition:.15s;}
+  .icon-btn:hover{background:rgba(255,255,255,.2);}
+  .btn-sair{padding:8px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:transparent;color:var(--creme);font-size:13px;font-weight:600;}
+  .btn-sair:hover{background:rgba(255,255,255,.12);}
+
+  nav.abas{display:flex;gap:4px;padding:10px 20px 0;background:var(--branco);border-bottom:1px solid var(--borda);position:sticky;top:64px;z-index:19;overflow-x:auto;}
+  nav.abas button{padding:12px 18px;border:none;background:none;font-size:14px;font-weight:600;color:var(--texto-claro);border-bottom:3px solid transparent;white-space:nowrap;}
+  nav.abas button.ativa{color:var(--verde-pinho);border-color:var(--marrom);}
+
+  main{max-width:1180px;margin:0 auto;padding:22px 20px 60px;}
+
+  /* ---------- NAVEGADOR DE MES ---------- */
+  .nav-mes{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:20px;}
+  .nav-mes button{width:36px;height:36px;border-radius:50%;border:1px solid var(--borda);background:var(--branco);color:var(--verde-pinho);font-size:16px;}
+  .nav-mes button:hover{background:var(--creme-escuro);}
+  .nav-mes .rotulo{font-size:19px;font-weight:700;color:var(--verde-pinho);min-width:180px;text-align:center;text-transform:capitalize;}
+  .nav-mes .hoje{font-size:12px;padding:6px 12px;border-radius:20px;border:1px solid var(--marrom);color:var(--marrom);background:var(--branco);font-weight:600;}
+
+  /* ---------- CARDS GERAIS ---------- */
+  .grid-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px;}
+  .card{background:var(--branco);border:1px solid var(--borda);border-radius:var(--raio);padding:16px 18px;box-shadow:var(--sombra);}
+  .card h3{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--texto-claro);font-weight:700;}
+  .card .num{font-size:30px;font-weight:800;color:var(--verde-pinho);line-height:1;}
+  .card .sub{font-size:12px;color:var(--texto-claro);margin-top:6px;}
+  .card .linhas{display:flex;flex-direction:column;gap:6px;margin-top:2px;}
+  .card .linha{display:flex;justify-content:space-between;font-size:13px;}
+  .card .linha b{color:var(--verde-pinho);}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+  .pill.agendado{background:var(--verde-ok-claro);color:var(--verde-ok);}
+  .pill.realizado{background:var(--azul-claro);color:var(--azul);}
+  .pill.desmarcou{background:#fdeed6;color:#a9660f;}
+  .pill.naoagendou{background:var(--vermelho-claro);color:var(--vermelho);}
+
+  .painel-secao{background:var(--branco);border:1px solid var(--borda);border-radius:var(--raio);padding:18px 20px;margin-bottom:20px;box-shadow:var(--sombra);}
+  .painel-secao h2{margin:0 0 4px;font-size:15px;color:var(--verde-pinho);}
+  .painel-secao .desc{font-size:12px;color:var(--texto-claro);margin:0 0 16px;}
+
+  /* barra semanal */
+  .semanas{display:flex;align-items:flex-end;gap:10px;height:110px;padding-top:10px;}
+  .semana-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;}
+  .semana-barra{width:100%;max-width:46px;background:linear-gradient(180deg,var(--marrom-claro),var(--marrom));border-radius:6px 6px 3px 3px;min-height:4px;transition:.3s;}
+  .semana-col .valor{font-size:12px;font-weight:700;color:var(--verde-pinho);margin-bottom:4px;}
+  .semana-col .rotulo{font-size:11px;color:var(--texto-claro);margin-top:6px;}
+
+  /* metas */
+  .metas-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;}
+  .meta-item{border:1px solid var(--borda);border-radius:12px;padding:14px;background:var(--creme);}
+  .meta-item h4{margin:0 0 8px;font-size:13px;color:var(--verde-pinho);}
+  .meta-item .campos{display:flex;gap:8px;margin-bottom:10px;}
+  .meta-item .campos label{flex:1;font-size:11px;color:var(--texto-claro);}
+  .meta-item .campos input{width:100%;padding:6px 8px;border:1px solid var(--borda);border-radius:6px;font-size:13px;margin-top:3px;}
+  .barra-progresso{height:10px;border-radius:6px;background:var(--creme-escuro);overflow:hidden;position:relative;margin:8px 0 6px;}
+  .barra-progresso .preenchido{height:100%;background:linear-gradient(90deg,var(--verde-pinho-claro),var(--verde-pinho));border-radius:6px;transition:.3s;}
+  .barra-progresso .marcador-super{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--marrom);}
+  .meta-status{font-size:12px;font-weight:700;}
+  .meta-status.ok{color:var(--verde-ok);}
+  .meta-status.super{color:var(--marrom);}
+  .meta-status.andamento{color:var(--texto-claro);}
+  .meta-atual{font-size:12px;color:var(--texto-claro);margin-top:2px;}
+
+  /* filtros e tabela */
+  .filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
+  .filtros input[type=text], .filtros select{padding:9px 12px;border:1px solid var(--borda);border-radius:9px;font-size:13px;background:var(--branco);}
+  .filtros input[type=text]{flex:1;min-width:180px;}
+  .btn{padding:10px 16px;border-radius:9px;border:none;font-size:13px;font-weight:700;background:var(--verde-pinho);color:var(--creme);}
+  .btn:hover{background:var(--verde-pinho-escuro);}
+  .btn.marrom{background:var(--marrom);color:var(--creme);}
+  .btn.marrom:hover{background:var(--marrom-escuro);}
+  .btn.outline{background:transparent;border:1px solid var(--borda);color:var(--texto);}
+  .btn.outline:hover{border-color:var(--verde-pinho);color:var(--verde-pinho);}
+  .btn.vermelho{background:var(--vermelho-claro);color:var(--vermelho);}
+  .btn.vermelho:hover{background:#f0d3d2;}
+  .btn.sm{padding:6px 11px;font-size:12px;border-radius:7px;}
+
+  .tabela-wrap{overflow-x:auto;border:1px solid var(--borda);border-radius:var(--raio);background:var(--branco);}
+  table{width:100%;border-collapse:collapse;min-width:980px;}
+  th,td{padding:10px 12px;text-align:left;font-size:13px;border-bottom:1px solid var(--borda);white-space:nowrap;}
+  th{background:var(--creme-escuro);color:var(--verde-pinho);font-size:11px;text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0;}
+  tr:hover td{background:var(--creme);}
+  td.obs-cel{white-space:normal;max-width:180px;color:var(--texto-claro);}
+  td.acoes{display:flex;gap:6px;}
+  .vazio{padding:40px 20px;text-align:center;color:var(--texto-claro);font-size:14px;}
+  tr.linha-hoje td{background:rgba(138,90,52,.08);}
+  tr.linha-hoje td:first-child{box-shadow:inset 3px 0 0 var(--marrom);}
+  .tag-hoje{display:inline-flex;align-items:center;line-height:1;margin-left:6px;padding:4px 8px;border-radius:20px;font-size:10px;font-weight:700;background:var(--marrom);color:var(--creme);vertical-align:middle;white-space:nowrap;}
+  .badge-alerta{display:block;margin-top:2px;font-size:11px;font-weight:700;color:#a9660f;}
+  .chk-agendado{width:18px;height:18px;accent-color:var(--marrom);cursor:pointer;}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(15,43,32,.55);display:flex;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto;z-index:50;}
+  .modal{background:var(--branco);border-radius:16px;max-width:560px;width:100%;padding:26px 26px 22px;box-shadow:0 20px 50px rgba(0,0,0,.3);}
+  .modal h2{margin:0 0 4px;color:var(--verde-pinho);font-size:18px;}
+  .modal .fechar{float:right;background:none;border:none;font-size:20px;color:var(--texto-claro);}
+  .campo{margin-bottom:13px;}
+  .campo label{display:block;font-size:12px;font-weight:700;color:var(--texto-claro);margin-bottom:5px;}
+  .campo input,.campo select,.campo textarea{width:100%;padding:10px 11px;border:1px solid var(--borda);border-radius:8px;font-size:14px;background:var(--creme);}
+  .campo textarea{resize:vertical;min-height:56px;}
+  .linha2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .modal-acoes{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+  .historico-contato{background:var(--azul-claro);border:1px solid #c7dae8;border-radius:10px;padding:10px 13px;font-size:12.5px;color:var(--azul);margin:-2px 0 13px;line-height:1.5;}
+  .detalhe-sub{color:var(--texto-claro);font-style:italic;}
+
+  /* categorias */
+  .cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;}
+  .cat-bloco h4{margin:0 0 10px;font-size:13px;color:var(--verde-pinho);}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+  .chip{display:flex;align-items:center;gap:6px;background:var(--creme-escuro);border:1px solid var(--borda);border-radius:20px;padding:5px 6px 5px 12px;font-size:12px;}
+  .chip button{background:none;border:none;color:var(--vermelho);font-size:13px;line-height:1;padding:2px;}
+  .cat-add{display:flex;gap:6px;}
+  .cat-add input{flex:1;padding:7px 9px;border:1px solid var(--borda);border-radius:7px;font-size:12px;}
+
+  /* anual */
+  .anual-destaques{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
+  .destaque{border:1px solid var(--borda);border-radius:12px;padding:12px 14px;background:var(--creme);}
+  .destaque .rot{font-size:10px;text-transform:uppercase;color:var(--texto-claro);font-weight:700;letter-spacing:.4px;}
+  .destaque .val{font-size:16px;font-weight:800;color:var(--verde-pinho);margin-top:4px;text-transform:capitalize;}
+  .anual-tabela{margin-top:6px;}
+  .barra-mes-wrap{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .barra-mes-wrap .mes-nome{width:36px;font-size:11px;color:var(--texto-claro);text-transform:uppercase;font-weight:700;}
+  .barra-mes-wrap .barra-fundo{flex:1;height:16px;background:var(--creme-escuro);border-radius:5px;overflow:hidden;}
+  .barra-mes-wrap .barra-fundo .fill{height:100%;background:linear-gradient(90deg,var(--verde-pinho-claro),var(--verde-pinho));}
+  .barra-mes-wrap .num{width:34px;text-align:right;font-size:12px;font-weight:700;color:var(--verde-pinho);}
+  .anual-bloco{margin-bottom:22px;}
+  .anual-bloco h3{font-size:13px;color:var(--verde-pinho);margin:0 0 10px;}
+
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--verde-pinho);color:var(--creme);padding:12px 20px;border-radius:10px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:100;opacity:0;pointer-events:none;transition:.25s;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+
+  @media (max-width:640px){
+    .linha2{grid-template-columns:1fr;}
+    nav.abas{top:60px;}
+    .nav-mes .rotulo{min-width:140px;font-size:16px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="tela-login">
+  <div class="login-card">
+    <img class="logo" src="icons/icon-192.png" alt="Agenda Olhatta">
+    <h1>Agenda Olhatta</h1>
+    <p>Controle de contatos e agendamentos da clínica</p>
+    <button class="btn-google" id="btn-login-google">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97L3.95 7.3C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+      Entrar com Google
+    </button>
+    <p class="login-status" id="login-status"></p>
+    <p class="login-erro" id="login-erro">Este e-mail não tem acesso ao sistema.</p>
+  </div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="app">
+  <header class="topo">
+    <div class="topo-marca">
+      <img src="icons/icon-192.png" alt="">
+      <div><strong>Agenda Olhatta</strong><span>Contatos &amp; Agendamentos</span></div>
+    </div>
+    <div class="topo-acoes">
+      <span class="sync-status ok" id="sync-status">Sincronizado</span>
+      <span class="email" id="user-email"></span>
+      <button class="icon-btn" id="btn-categorias" title="Categorias">&#9881;</button>
+      <button class="icon-btn" id="btn-atualizar" title="Atualizar app">&#8635;</button>
+      <button class="btn-sair" id="btn-logout">Sair</button>
+    </div>
+  </header>
+
+  <nav class="abas">
+    <button class="ativa" data-aba="agendamentos">Agendamentos</button>
+    <button data-aba="anual">Comparativo Anual</button>
+  </nav>
+
+  <main>
+    <!-- ---------- ABA AGENDAMENTOS ---------- -->
+    <section id="aba-agendamentos">
+      <div class="nav-mes">
+        <button id="mes-anterior">&#8249;</button>
+        <div class="rotulo" id="mes-rotulo">Setembro 2026</div>
+        <button id="mes-proximo">&#8250;</button>
+        <button class="hoje" id="mes-hoje">Hoje</button>
+      </div>
+
+      <div class="grid-cards" id="cards-resumo"></div>
+
+      <div class="painel-secao">
+        <h2>Contatos por semana</h2>
+        <p class="desc">Quantidade de contatos registrados em cada semana do mês</p>
+        <div class="semanas" id="grafico-semanas"></div>
+      </div>
+
+      <div class="painel-secao">
+        <h2>Metas do mês</h2>
+        <p class="desc">Defina a meta e a supermeta — o progresso é calculado automaticamente pelos agendamentos</p>
+        <div class="metas-grid" id="metas-grid"></div>
+      </div>
+
+      <div class="painel-secao" id="painel-tabela">
+        <h2>Contatos e agendamentos</h2>
+        <p class="desc">Todos os contatos do mês selecionado</p>
+        <div class="filtros">
+          <input type="text" id="filtro-busca" placeholder="Buscar por nome, animal ou telefone...">
+          <select id="filtro-status"><option value="">Status (todos)</option></select>
+          <select id="filtro-tipo"><option value="">Tipo (todos)</option></select>
+          <select id="filtro-cidade"><option value="">Cidade (todas)</option></select>
+          <select id="filtro-clinica"><option value="">Clínica (todas)</option></select>
+          <button class="btn marrom" id="btn-novo">+ Novo contato</button>
+        </div>
+        <div class="tabela-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th><th>Telefone</th><th>Animal</th><th>Clínica</th><th>Cidade</th><th>Tipo</th>
+                <th>Contato</th><th>Status</th><th title="Marque quando confirmar o agendamento">Agendado?</th><th>Agend./Desmarque</th><th>Motivo</th><th>Obs.</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="tabela-corpo"></tbody>
+          </table>
+        </div>
+        <div class="vazio" id="tabela-vazia" hidden>Nenhum contato encontrado para este mês/filtro.</div>
+      </div>
+    </section>
+
+    <!-- ---------- ABA ANUAL ---------- -->
+    <section id="aba-anual" hidden>
+      <div class="nav-mes">
+        <button id="ano-anterior">&#8249;</button>
+        <div class="rotulo" id="ano-rotulo">2026</div>
+        <button id="ano-proximo">&#8250;</button>
+      </div>
+
+      <div class="anual-destaques" id="anual-destaques"></div>
+
+      <div class="painel-secao">
+        <div id="anual-blocos"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ===================== MODAL: NOVO/EDITAR CONTATO ===================== -->
+<div class="overlay" id="modal-entry" hidden>
+  <div class="modal">
+    <button class="fechar" id="fechar-modal-entry">&times;</button>
+    <h2 id="entry-titulo">Novo contato</h2>
+    <p class="desc" style="color:var(--texto-claro);font-size:12px;margin:0 0 16px;">Preencha os dados do contato/agendamento</p>
+    <form id="form-entry">
+      <div class="linha2">
+        <div class="campo"><label>Nome</label><input type="text" id="f-nome" required></div>
+        <div class="campo"><label>Telefone</label><input type="text" id="f-telefone" list="lista-telefones" placeholder="(00) 00000-0000"></div>
+      </div>
+      <datalist id="lista-telefones"></datalist>
+      <div class="historico-contato" id="historico-contato" hidden></div>
+      <div class="linha2">
+        <div class="campo"><label>Animal</label><input type="text" id="f-animal"></div>
+        <div class="campo"><label>Indicação</label><input type="text" id="f-indicacao" placeholder="Quem indicou (opcional)"></div>
+      </div>
+      <div class="linha2">
+        <div class="campo"><label>Clínica</label><select id="f-clinica"></select></div>
+        <div class="campo"><label>Cidade</label><select id="f-cidade"></select></div>
+      </div>
+      <div class="linha2">
+        <div class="campo"><label>Tipo</label><select id="f-tipo"></select></div>
+        <div class="campo"><label>Data de contato</label><input type="date" id="f-datacontato"></div>
+      </div>
+      <div class="linha2">
+        <div class="campo"><label>Status</label>
+          <select id="f-status">
+            <option value="Agendado">Agendado</option>
+            <option value="Realizado">Realizado</option>
+            <option value="Desmarcou">Desmarcou</option>
+            <option value="Não Agendou">Não Agendou</option>
+          </select>
+        </div>
+        <div class="campo"><label id="f-data2-label">Data de agendamento</label><input type="date" id="f-data2"></div>
+      </div>
+      <div id="campo-motivo" hidden>
+        <div class="campo"><label>Motivo</label><select id="f-motivo"></select></div>
+        <div class="campo"><label>Detalhes do motivo</label><textarea id="f-detalhe-motivo" placeholder="Explique melhor o que aconteceu (opcional)"></textarea></div>
+      </div>
+      <div class="campo"><label>Observações</label><textarea id="f-obs"></textarea></div>
+      <div class="modal-acoes">
+        <button type="button" class="btn vermelho" id="btn-excluir-entry" hidden>Excluir</button>
+        <button type="button" class="btn outline" id="btn-cancelar-entry">Cancelar</button>
+        <button type="submit" class="btn marrom">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== MODAL: CATEGORIAS ===================== -->
+<div class="overlay" id="modal-categorias" hidden>
+  <div class="modal" style="max-width:640px;">
+    <button class="fechar" id="fechar-modal-categorias">&times;</button>
+    <h2>Categorias</h2>
+    <p class="desc" style="color:var(--texto-claro);font-size:12px;margin:0 0 18px;">Painel editável — usado nos formulários e filtros</p>
+    <div class="cat-grid" id="cat-grid"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
