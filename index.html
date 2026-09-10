@@ -73,7 +73,7 @@
   nav.abas button{padding:12px 18px;border:none;background:none;font-size:14px;font-weight:600;color:var(--texto-claro);border-bottom:3px solid transparent;white-space:nowrap;}
   nav.abas button.ativa{color:var(--verde-pinho);border-color:var(--marrom);}
 
-  main{max-width:1180px;margin:0 auto;padding:22px 20px 60px;}
+  main{max-width:1560px;margin:0 auto;padding:22px 20px 60px;}
 
   /* ---------- NAVEGADOR DE MES ---------- */
   .nav-mes{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:20px;}
@@ -96,10 +96,25 @@
   .pill.realizado{background:var(--azul-claro);color:var(--azul);}
   .pill.desmarcou{background:#fdeed6;color:#a9660f;}
   .pill.naoagendou{background:var(--vermelho-claro);color:var(--vermelho);}
+  .pill.aguardando{background:#fbecd0;color:#8a5c10;}
 
   .painel-secao{background:var(--branco);border:1px solid var(--borda);border-radius:var(--raio);padding:18px 20px;margin-bottom:20px;box-shadow:var(--sombra);}
   .painel-secao h2{margin:0 0 4px;font-size:15px;color:var(--verde-pinho);}
   .painel-secao .desc{font-size:12px;color:var(--texto-claro);margin:0 0 16px;}
+
+  .painel-secao.destaque-metas{background:linear-gradient(180deg,#fbf3e9 0%,var(--branco) 130px);border:1px solid var(--marrom-claro);border-left:5px solid var(--marrom);box-shadow:0 4px 18px rgba(138,90,52,.12);}
+  .painel-secao.destaque-metas h2{color:var(--marrom-escuro);font-size:17px;}
+
+  .painel-secao.destaque-pendentes{background:#fff9ef;border:1px solid #e7cfa1;border-left:5px solid #c98a1f;}
+  .painel-secao.destaque-pendentes h2{color:#8a5c10;font-size:16px;display:flex;align-items:center;gap:8px;}
+  #pendentes-contagem{background:#c98a1f;color:var(--creme);font-size:12px;font-weight:700;padding:2px 9px;border-radius:20px;}
+  .pendente-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 4px;border-bottom:1px solid #efe0c2;font-size:13px;flex-wrap:wrap;}
+  .pendente-item:last-child{border-bottom:none;}
+  .pendente-info b{color:var(--texto);}
+  .pendente-info span{display:block;color:var(--texto-claro);font-size:12px;margin-top:2px;}
+  .pendente-item button{background:var(--branco);border:1px solid #c98a1f;color:#8a5c10;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;}
+  .pendente-item button:hover{background:#c98a1f;color:var(--creme);}
+  .vazio-pendentes{font-size:13px;color:var(--texto-claro);padding:6px 4px;}
 
   /* barra semanal */
   .semanas{display:flex;align-items:flex-end;gap:10px;height:110px;padding-top:10px;}
@@ -110,19 +125,20 @@
 
   /* metas */
   .metas-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;}
-  .meta-item{border:1px solid var(--borda);border-radius:12px;padding:14px;background:var(--creme);}
-  .meta-item h4{margin:0 0 8px;font-size:13px;color:var(--verde-pinho);}
+  .meta-item{border:1px solid var(--borda);border-top:3px solid var(--marrom);border-radius:12px;padding:16px;background:var(--branco);box-shadow:0 2px 8px rgba(138,90,52,.06);}
+  .meta-item h4{margin:0 0 10px;font-size:13px;color:var(--marrom-escuro);text-transform:uppercase;letter-spacing:.3px;}
   .meta-item .campos{display:flex;gap:8px;margin-bottom:10px;}
   .meta-item .campos label{flex:1;font-size:11px;color:var(--texto-claro);}
   .meta-item .campos input{width:100%;padding:6px 8px;border:1px solid var(--borda);border-radius:6px;font-size:13px;margin-top:3px;}
-  .barra-progresso{height:10px;border-radius:6px;background:var(--creme-escuro);overflow:hidden;position:relative;margin:8px 0 6px;}
-  .barra-progresso .preenchido{height:100%;background:linear-gradient(90deg,var(--verde-pinho-claro),var(--verde-pinho));border-radius:6px;transition:.3s;}
-  .barra-progresso .marcador-super{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--marrom);}
-  .meta-status{font-size:12px;font-weight:700;}
+  .barra-progresso{height:14px;border-radius:8px;background:var(--creme-escuro);overflow:hidden;position:relative;margin:8px 0 6px;}
+  .barra-progresso .preenchido{height:100%;background:linear-gradient(90deg,var(--marrom-claro),var(--marrom));border-radius:8px;transition:.3s;}
+  .barra-progresso .marcador-super{position:absolute;top:-3px;bottom:-3px;width:3px;background:var(--verde-pinho);}
+  .meta-atual{font-size:15px;color:var(--texto);margin-top:4px;}
+  .meta-atual b{font-size:19px;color:var(--marrom-escuro);}
+  .meta-status{font-size:13px;font-weight:700;margin-top:4px;}
   .meta-status.ok{color:var(--verde-ok);}
   .meta-status.super{color:var(--marrom);}
   .meta-status.andamento{color:var(--texto-claro);}
-  .meta-atual{font-size:12px;color:var(--texto-claro);margin-top:2px;}
 
   /* filtros e tabela */
   .filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
@@ -249,21 +265,23 @@
 
       <div class="grid-cards" id="cards-resumo"></div>
 
-      <div class="painel-secao">
-        <h2>Contatos por semana</h2>
-        <p class="desc">Quantidade de contatos registrados em cada semana do mês</p>
-        <div class="semanas" id="grafico-semanas"></div>
+      <div class="painel-secao destaque-pendentes" id="painel-pendentes" hidden>
+        <h2>⏳ Contatos pendentes <span id="pendentes-contagem"></span></h2>
+        <div id="lista-pendentes"></div>
+      </div>
+
+      <div class="painel-secao destaque-metas">
+        <h2>🎯 Metas do mês</h2>
+        <div class="metas-grid" id="metas-grid"></div>
       </div>
 
       <div class="painel-secao">
-        <h2>Metas do mês</h2>
-        <p class="desc">Defina a meta e a supermeta — o progresso é calculado automaticamente pelos agendamentos</p>
-        <div class="metas-grid" id="metas-grid"></div>
+        <h2>Contatos por semana</h2>
+        <div class="semanas" id="grafico-semanas"></div>
       </div>
 
       <div class="painel-secao" id="painel-tabela">
         <h2>Contatos e agendamentos</h2>
-        <p class="desc">Todos os contatos do mês selecionado</p>
         <div class="filtros">
           <input type="text" id="filtro-busca" placeholder="Buscar por nome, animal ou telefone...">
           <select id="filtro-status"><option value="">Status (todos)</option></select>
@@ -309,7 +327,6 @@
   <div class="modal">
     <button class="fechar" id="fechar-modal-entry">&times;</button>
     <h2 id="entry-titulo">Novo contato</h2>
-    <p class="desc" style="color:var(--texto-claro);font-size:12px;margin:0 0 16px;">Preencha os dados do contato/agendamento</p>
     <form id="form-entry">
       <div class="linha2">
         <div class="campo"><label>Nome</label><input type="text" id="f-nome" required></div>
@@ -336,13 +353,14 @@
             <option value="Realizado">Realizado</option>
             <option value="Desmarcou">Desmarcou</option>
             <option value="Não Agendou">Não Agendou</option>
+            <option value="Aguardando">Aguardando (contatar de novo depois)</option>
           </select>
         </div>
         <div class="campo"><label id="f-data2-label">Data de agendamento</label><input type="date" id="f-data2"></div>
       </div>
       <div id="campo-motivo" hidden>
-        <div class="campo"><label>Motivo</label><select id="f-motivo"></select></div>
-        <div class="campo"><label>Detalhes do motivo</label><textarea id="f-detalhe-motivo" placeholder="Explique melhor o que aconteceu (opcional)"></textarea></div>
+        <div class="campo" id="campo-motivo-select"><label>Motivo</label><select id="f-motivo"></select></div>
+        <div class="campo"><label id="label-detalhe-motivo">Detalhes do motivo</label><textarea id="f-detalhe-motivo" placeholder="Explique melhor o que aconteceu (opcional)"></textarea></div>
       </div>
       <div class="campo"><label>Observações</label><textarea id="f-obs"></textarea></div>
       <div class="modal-acoes">
@@ -359,7 +377,6 @@
   <div class="modal" style="max-width:640px;">
     <button class="fechar" id="fechar-modal-categorias">&times;</button>
     <h2>Categorias</h2>
-    <p class="desc" style="color:var(--texto-claro);font-size:12px;margin:0 0 18px;">Painel editável — usado nos formulários e filtros</p>
     <div class="cat-grid" id="cat-grid"></div>
   </div>
 </div>

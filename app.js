@@ -299,7 +299,7 @@ function popularSelects() {
     });
     if (valores.includes(atual) || atual === '') el.value = atual;
   }
-  preencher('filtro-status', ['Agendado','Realizado','Desmarcou','Não Agendou'], 'Status (todos)');
+  preencher('filtro-status', ['Agendado','Realizado','Desmarcou','Não Agendou','Aguardando'], 'Status (todos)');
   preencher('filtro-tipo', cat.tipos, 'Tipo (todos)');
   preencher('filtro-cidade', cat.cidades, 'Cidade (todas)');
   preencher('filtro-clinica', cat.clinicas, 'Clínica (todas)');
@@ -308,6 +308,10 @@ function popularSelects() {
   preencher('f-cidade', cat.cidades, null);
   preencher('f-tipo', cat.tipos, null);
   preencher('f-motivo', cat.motivos, null);
+  const optNovoMotivo = document.createElement('option');
+  optNovoMotivo.value = '__novo__';
+  optNovoMotivo.textContent = '+ Adicionar novo motivo...';
+  document.getElementById('f-motivo').appendChild(optNovoMotivo);
 
   // datalist com telefones já cadastrados, pra facilitar reconhecer quem já ligou antes
   const vistos = new Set();
@@ -392,9 +396,43 @@ function renderAgendamentos() {
   const stats = statsDoMes(mesKey);
 
   renderCards(stats);
+  renderPendentes();
   renderSemanas(stats);
   renderMetas(mesKey, stats);
   renderTabela(mesKey);
+}
+
+// Contatos com status "Aguardando" (a recontatar depois) — mostrados sempre,
+// independente do mês selecionado, pra não ficarem esquecidos.
+function renderPendentes() {
+  const painel = document.getElementById('painel-pendentes');
+  const contagem = document.getElementById('pendentes-contagem');
+  const lista = document.getElementById('lista-pendentes');
+
+  const pendentes = state.entries
+    .filter(e => e.status === 'Aguardando')
+    .sort((a, b) => (a.dataContato || '').localeCompare(b.dataContato || ''));
+
+  if (pendentes.length === 0) { painel.hidden = true; return; }
+
+  painel.hidden = false;
+  contagem.textContent = pendentes.length;
+  lista.innerHTML = pendentes.map(e => `
+    <div class="pendente-item">
+      <div class="pendente-info">
+        <b>${escapeHtml(e.nome || '(sem nome)')}</b> — ${escapeHtml(e.telefone || '')}${e.animal ? ' · ' + escapeHtml(e.animal) : ''}
+        <span>Contato em ${formatarData(e.dataContato)}${e.detalheMotivo ? ' · ' + escapeHtml(e.detalheMotivo) : ''}</span>
+      </div>
+      <button type="button" class="btn-editar-pendente" data-id="${e.id}">Contatar / editar</button>
+    </div>
+  `).join('');
+
+  lista.querySelectorAll('.btn-editar-pendente').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const entry = state.entries.find(e => e.id === btn.dataset.id);
+      if (entry) abrirModalEntry(entry);
+    });
+  });
 }
 
 function renderCards(stats) {
@@ -532,6 +570,7 @@ function pillClasse(status) {
   if (status === 'Agendado') return 'agendado';
   if (status === 'Realizado') return 'realizado';
   if (status === 'Desmarcou') return 'desmarcou';
+  if (status === 'Aguardando') return 'aguardando';
   return 'naoagendou';
 }
 
@@ -637,9 +676,31 @@ document.getElementById('f-status').addEventListener('change', atualizarVisibili
 function atualizarVisibilidadeMotivo() {
   const status = document.getElementById('f-status').value;
   const precisaMotivo = STATUS_NAO_AGENDADOS.includes(status);
-  document.getElementById('campo-motivo').hidden = !precisaMotivo;
+  const ehAguardando = status === 'Aguardando';
+  document.getElementById('campo-motivo').hidden = !(precisaMotivo || ehAguardando);
+  document.getElementById('campo-motivo-select').hidden = !precisaMotivo;
+  document.getElementById('label-detalhe-motivo').textContent = ehAguardando ? 'Observação (quando contatar de novo, etc.)' : 'Detalhes do motivo';
   document.getElementById('f-data2-label').textContent = precisaMotivo ? 'Data do desmarque/contato' : 'Data de agendamento';
 }
+
+document.getElementById('f-motivo').addEventListener('change', ev => {
+  const sel = ev.target;
+  if (sel.value !== '__novo__') return;
+  const novo = (prompt('Digite o novo motivo:') || '').trim();
+  if (!novo) { sel.value = state.categorias.motivos[0] || ''; return; }
+  if (state.categorias.motivos.includes(novo)) { sel.value = novo; return; }
+  sel.disabled = true;
+  adicionarCategoria('motivos', novo).then(() => {
+    sel.disabled = false;
+    if (!state.categorias.motivos.includes(novo)) state.categorias.motivos.push(novo);
+    popularSelects();
+    sel.value = novo;
+  }).catch(err => {
+    sel.disabled = false;
+    sel.value = state.categorias.motivos[0] || '';
+    mostrarToast('Não foi possível adicionar o motivo: ' + err.message);
+  });
+});
 
 document.getElementById('f-nome').addEventListener('input', atualizarPainelHistorico);
 document.getElementById('f-telefone').addEventListener('input', atualizarPainelHistorico);
@@ -678,6 +739,7 @@ document.getElementById('form-entry').addEventListener('submit', ev => {
   ev.preventDefault();
   const status = document.getElementById('f-status').value;
   const precisaMotivo = STATUS_NAO_AGENDADOS.includes(status);
+  const mostrarDetalhe = precisaMotivo || status === 'Aguardando';
   const btnSalvar = ev.target.querySelector('button[type=submit]');
   const dados = {
     nome: document.getElementById('f-nome').value.trim(),
@@ -691,7 +753,7 @@ document.getElementById('form-entry').addEventListener('submit', ev => {
     status: status,
     dataAgendamento: document.getElementById('f-data2').value,
     motivo: precisaMotivo ? document.getElementById('f-motivo').value : '',
-    detalheMotivo: precisaMotivo ? document.getElementById('f-detalhe-motivo').value.trim() : '',
+    detalheMotivo: mostrarDetalhe ? document.getElementById('f-detalhe-motivo').value.trim() : '',
     obs: document.getElementById('f-obs').value.trim(),
     criadoEm: (editingEntryId && state.entries.find(e=>e.id===editingEntryId)?.criadoEm) || new Date().toISOString()
   };

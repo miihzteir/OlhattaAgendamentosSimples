@@ -34,6 +34,9 @@
   .btn-marrom{background:var(--marrom);color:var(--creme);margin-top:10px;}
   .btn-marrom:hover{background:var(--marrom-escuro);}
   .btn-marrom:disabled{opacity:.5;cursor:default;}
+  .btn-vermelho{background:var(--vermelho);color:var(--creme);margin-top:8px;}
+  .btn-vermelho:hover{background:#8f2e2c;}
+  .btn-vermelho:disabled{opacity:.5;cursor:default;}
   .aviso{background:var(--creme-escuro);border:1px solid var(--borda);border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:16px;}
   .aviso.perigo{background:var(--vermelho-claro);border-color:#e2b6b4;color:#7a2e2c;}
   .aviso.ok{background:var(--verde-ok-claro);border-color:#bcdcc7;color:var(--verde-ok);}
@@ -63,6 +66,8 @@
     <div id="aviso-existentes" class="aviso perigo" hidden></div>
     <p>Isso vai criar <span class="destaque">891 contatos/agendamentos</span> no sistema, com as datas de contato e de agendamento originais de cada um — exatamente como estava na planilha. Motivos e cidade "Sorriso" (fora de Sinop/Lucas) também são trazidos.</p>
     <button class="btn-marrom" id="btn-importar">Importar agora</button>
+    <button class="btn-vermelho" id="btn-desfazer">Desfazer última importação</button>
+    <p style="font-size:12px;margin-top:4px;">Isso apaga só os registros trazidos pela importação (marcados internamente), sem mexer em nada que você cadastrou manualmente depois.</p>
     <div id="bloco-progresso" hidden>
       <div id="barra-wrap"><div id="barra"></div></div>
       <p id="progresso-texto">Importando...</p>
@@ -161,6 +166,43 @@ document.getElementById('btn-importar').addEventListener('click', async () => {
     resultado.className = 'aviso perigo';
     resultado.textContent = 'Deu erro na importação: ' + err.message + ' (pode tentar de novo clicando em Importar agora)';
     btn.disabled = false;
+  }
+});
+
+document.getElementById('btn-desfazer').addEventListener('click', async () => {
+  const btnDesfazer = document.getElementById('btn-desfazer');
+  const resultado = document.getElementById('resultado');
+  if (!confirm('Isso vai apagar todos os registros trazidos pela importação da planilha (os que você cadastrou manualmente no app não são afetados). Confirma?')) return;
+
+  btnDesfazer.disabled = true;
+  resultado.hidden = false;
+  resultado.className = 'aviso ok';
+  resultado.textContent = 'Procurando registros importados...';
+
+  try {
+    const snap = await entriesCol.where('origemImportacao', '==', true).get();
+    const docs = snap.docs;
+    if (docs.length === 0) {
+      resultado.textContent = 'Nenhum registro de importação encontrado (talvez já tenha sido desfeito, ou os dados atuais foram todos cadastrados manualmente).';
+      btnDesfazer.disabled = false;
+      return;
+    }
+    const TAMANHO_LOTE = 400;
+    let feitos = 0;
+    for (let i = 0; i < docs.length; i += TAMANHO_LOTE) {
+      const lote = docs.slice(i, i + TAMANHO_LOTE);
+      const batch = db.batch();
+      lote.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      feitos += lote.length;
+      resultado.textContent = 'Apagando... ' + feitos + ' / ' + docs.length;
+    }
+    resultado.textContent = 'Pronto! ' + docs.length + ' registros da importação foram removidos. Já pode clicar em "Importar agora" de novo quando quiser.';
+    btnDesfazer.disabled = false;
+  } catch (err) {
+    resultado.className = 'aviso perigo';
+    resultado.textContent = 'Deu erro ao desfazer: ' + err.message;
+    btnDesfazer.disabled = false;
   }
 });
 </script>
