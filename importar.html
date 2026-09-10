@@ -40,6 +40,9 @@
   .aviso{background:var(--creme-escuro);border:1px solid var(--borda);border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:16px;}
   .aviso.perigo{background:var(--vermelho-claro);border-color:#e2b6b4;color:#7a2e2c;}
   .aviso.ok{background:var(--verde-ok-claro);border-color:#bcdcc7;color:var(--verde-ok);}
+  .bloco-dup{background:var(--creme-escuro);border-radius:12px;padding:16px 18px;margin-bottom:6px;text-align:left;}
+  .titulo-dup{font-size:15px;margin:0 0 8px;color:var(--marrom-escuro);}
+  #resultado-dup{margin-top:10px;font-size:13px;}
   #barra-wrap{background:var(--creme-escuro);border-radius:20px;height:10px;overflow:hidden;margin:14px 0 8px;}
   #barra{background:var(--marrom);height:100%;width:0%;transition:width .2s;}
   #progresso-texto{font-size:13px;color:var(--texto-claro);text-align:center;}
@@ -53,7 +56,7 @@
   <h1>Importar dados da planilha antiga</h1>
 
   <div id="bloco-login">
-    <p>Entra com uma conta autorizada pra importar os <span class="destaque">891 registros</span> de Janeiro a Setembro/2026 da sua planilha Excel pra dentro do Agenda Olhatta.</p>
+    <p>Entra com uma conta autorizada pra importar os <span class="destaque">856 registros</span> de Janeiro a Setembro/2026 da sua planilha Excel pra dentro do Agenda Olhatta.</p>
     <button class="btn-google" id="btn-login-google">
       <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97L3.95 7.3C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
       Entrar com Google
@@ -64,7 +67,17 @@
   <div id="bloco-import" hidden>
     <p id="texto-usuario"></p>
     <div id="aviso-existentes" class="aviso perigo" hidden></div>
-    <p>Isso vai criar <span class="destaque">891 contatos/agendamentos</span> no sistema, com as datas de contato e de agendamento originais de cada um — exatamente como estava na planilha. Motivos e cidade "Sorriso" (fora de Sinop/Lucas) também são trazidos.</p>
+
+    <div class="bloco-dup">
+      <h2 class="titulo-dup">Corrigir contatos duplicados</h2>
+      <p>A planilha original repetia algumas linhas (um agendamento marcado num mês aparecia de novo como "mês anterior" no mês seguinte). Esse botão procura só as duplicatas 100% exatas — mesmo nome, telefone, animal, datas e status — sem mexer em nada que você já editou ou cadastrou manualmente. <b>Se você já importou os dados antes desta atualização, o ideal é usar "Desfazer última importação" logo abaixo e importar de novo com o arquivo corrigido</b> — essa revisão achou também casos de status desatualizado (um agendamento que depois foi desmarcado, mas ficou registrado duas vezes) que esse botão sozinho não resolve.</p>
+      <button class="btn-marrom" id="btn-procurar-dup">Procurar duplicatas</button>
+      <div id="resultado-dup" hidden></div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--borda);margin:22px 0;">
+
+    <p>Isso vai criar <span class="destaque">856 contatos/agendamentos</span> no sistema, com as datas de contato e de agendamento originais de cada um — exatamente como estava na planilha. Motivos e cidade "Sorriso" (fora de Sinop/Lucas) também são trazidos.</p>
     <button class="btn-marrom" id="btn-importar">Importar agora</button>
     <button class="btn-vermelho" id="btn-desfazer">Desfazer última importação</button>
     <p style="font-size:12px;margin-top:4px;">Isso apaga só os registros trazidos pela importação (marcados internamente), sem mexer em nada que você cadastrou manualmente depois.</p>
@@ -124,6 +137,85 @@ function verificarExistentes() {
     }
   });
 }
+
+// ---- Corrigir duplicatas exatas (mesmo nome/telefone/animal/datas/status/motivo/obs) ----
+function assinaturaEntry(d) {
+  return [d.nome, d.telefone, d.animal, d.indicacao, d.clinica, d.cidade, d.tipo, d.dataContato, d.status, d.dataAgendamento, d.motivo, d.detalheMotivo, d.obs].join('|');
+}
+
+let duplicatasParaRemover = [];
+
+document.getElementById('btn-procurar-dup').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-procurar-dup');
+  const resultado = document.getElementById('resultado-dup');
+  btn.disabled = true;
+  resultado.hidden = false;
+  resultado.className = '';
+  resultado.textContent = 'Procurando...';
+
+  try {
+    const snap = await entriesCol.get();
+    const grupos = {};
+    snap.docs.forEach(doc => {
+      const d = doc.data();
+      const chave = assinaturaEntry(d);
+      if (!grupos[chave]) grupos[chave] = [];
+      grupos[chave].push(doc);
+    });
+
+    duplicatasParaRemover = [];
+    const nomesAfetados = [];
+    Object.values(grupos).forEach(docs => {
+      if (docs.length > 1) {
+        // mantém o primeiro (mais antigo), marca o resto pra remoção
+        docs.sort((a, b) => (a.data().criadoEm || '').localeCompare(b.data().criadoEm || ''));
+        const [manter, ...resto] = docs;
+        resto.forEach(doc => duplicatasParaRemover.push(doc.ref));
+        nomesAfetados.push(manter.data().nome + ' (' + resto.length + 'x a mais)');
+      }
+    });
+
+    if (duplicatasParaRemover.length === 0) {
+      resultado.className = 'aviso ok';
+      resultado.textContent = 'Nenhuma duplicata exata encontrada. Está tudo certo por aqui.';
+      btn.disabled = false;
+      return;
+    }
+
+    resultado.className = 'aviso perigo';
+    resultado.innerHTML = 'Encontrei <b>' + duplicatasParaRemover.length + ' registro(s) duplicado(s)</b>: ' + nomesAfetados.join(', ') +
+      '. Vou manter uma cópia de cada e remover só as repetidas. Nada que você editou manualmente é afetado (só apaga quando os dados são 100% idênticos).' +
+      '<br><button class="btn-vermelho" id="btn-confirmar-remocao-dup" style="margin-top:10px;">Remover ' + duplicatasParaRemover.length + ' duplicata(s) agora</button>';
+
+    document.getElementById('btn-confirmar-remocao-dup').addEventListener('click', async () => {
+      const btnConfirma = document.getElementById('btn-confirmar-remocao-dup');
+      btnConfirma.disabled = true;
+      btnConfirma.textContent = 'Removendo...';
+      try {
+        const TAMANHO_LOTE = 400;
+        for (let i = 0; i < duplicatasParaRemover.length; i += TAMANHO_LOTE) {
+          const lote = duplicatasParaRemover.slice(i, i + TAMANHO_LOTE);
+          const batch = db.batch();
+          lote.forEach(ref => batch.delete(ref));
+          await batch.commit();
+        }
+        resultado.className = 'aviso ok';
+        resultado.textContent = 'Pronto! ' + duplicatasParaRemover.length + ' registro(s) duplicado(s) removido(s). Pode voltar pro Agenda Olhatta e conferir.';
+        duplicatasParaRemover = [];
+      } catch (err) {
+        resultado.className = 'aviso perigo';
+        resultado.textContent = 'Deu erro ao remover: ' + err.message;
+        btnConfirma.disabled = false;
+        btnConfirma.textContent = 'Remover ' + duplicatasParaRemover.length + ' duplicata(s) agora';
+      }
+    });
+  } catch (err) {
+    resultado.className = 'aviso perigo';
+    resultado.textContent = 'Deu erro ao procurar: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 document.getElementById('btn-importar').addEventListener('click', async () => {
   const btn = document.getElementById('btn-importar');
