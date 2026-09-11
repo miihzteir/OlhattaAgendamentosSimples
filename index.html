@@ -112,11 +112,9 @@
   .vazio-pendentes{font-size:13px;color:var(--texto-claro);padding:6px 0;}
 
   /* barra semanal */
-  .semanas{display:flex;align-items:flex-end;gap:10px;height:110px;padding-top:10px;}
-  .semana-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;}
-  .semana-barra{width:100%;max-width:46px;background:linear-gradient(180deg,var(--marrom-claro),var(--marrom));border-radius:6px 6px 3px 3px;min-height:4px;transition:.3s;}
-  .semana-col .valor{font-size:12px;font-weight:700;color:var(--verde-pinho);margin-bottom:4px;}
-  .semana-col .rotulo{font-size:11px;color:var(--texto-claro);margin-top:6px;}
+  .semana-linha-max td{background:var(--creme-escuro);}
+  .semana-linha-max td:first-child{font-weight:700;color:var(--marrom-escuro);}
+  .semana-num{font-weight:700;color:var(--verde-pinho);}
 
   /* metas */
   .metas-grid{display:flex;flex-direction:column;}
@@ -154,8 +152,13 @@
   .tabela-wrap{overflow-x:auto;border:1px solid var(--borda);border-radius:var(--raio);background:var(--branco);}
   table{width:100%;border-collapse:collapse;min-width:980px;}
   th,td{padding:12px;text-align:left;font-size:13px;line-height:1.4;border-bottom:1px solid var(--borda);white-space:nowrap;vertical-align:top;}
-  th{background:linear-gradient(160deg,var(--verde-pinho) 0%,var(--verde-pinho-escuro) 100%);color:var(--creme);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:13px 12px;position:sticky;top:0;}
+  th{background:linear-gradient(135deg,var(--verde-pinho-claro) 0%,var(--verde-pinho) 48%,var(--verde-pinho-escuro) 100%);color:var(--creme);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:14px 12px;position:sticky;top:118px;z-index:5;box-shadow:inset 0 -2px 0 rgba(0,0,0,.15);}
+  thead tr th:first-child{border-top-left-radius:var(--raio);}
+  thead tr th:last-child{border-top-right-radius:var(--raio);}
   tr:hover td{background:var(--creme);}
+  .tabela-wrap.compacta table{min-width:0;}
+  .tabela-wrap.compacta th,.tabela-wrap.compacta td{white-space:normal;}
+  .tabela-wrap.compacta th{position:static;}
   td.obs-cel{white-space:normal;max-width:180px;color:var(--texto-claro);}
   td.obs-cel > span:first-child{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
   .detalhe-sub{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;font-style:italic;}
@@ -202,14 +205,9 @@
   .stat-tile{border:1px solid var(--borda);border-radius:12px;padding:12px 14px;background:var(--creme);}
   .stat-tile .rot{font-size:10px;text-transform:uppercase;color:var(--texto-claro);font-weight:700;letter-spacing:.4px;}
   .stat-tile .val{font-size:16px;font-weight:800;color:var(--verde-pinho);margin-top:4px;text-transform:capitalize;}
-  .anual-tabela{margin-top:6px;}
-  .barra-mes-wrap{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
-  .barra-mes-wrap .mes-nome{width:36px;font-size:11px;color:var(--texto-claro);text-transform:uppercase;font-weight:700;}
-  .barra-mes-wrap .barra-fundo{flex:1;height:16px;background:var(--creme-escuro);border-radius:5px;overflow:hidden;}
-  .barra-mes-wrap .barra-fundo .fill{height:100%;background:linear-gradient(90deg,var(--verde-pinho-claro),var(--verde-pinho));}
-  .barra-mes-wrap .num{width:34px;text-align:right;font-size:12px;font-weight:700;color:var(--verde-pinho);}
-  .anual-bloco{margin-bottom:22px;}
-  .anual-bloco h3{font-size:13px;color:var(--verde-pinho);margin:0 0 10px;}
+  #tabela-anual-corpo td.mes-nome{text-transform:capitalize;font-weight:700;color:var(--texto);}
+  #tabela-anual-corpo td.maior-valor{font-weight:800;color:var(--verde-pinho);position:relative;}
+  #tabela-anual-corpo td.maior-valor::after{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--marrom-claro);margin-left:7px;vertical-align:middle;}
 
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--verde-pinho);color:var(--creme);padding:12px 20px;border-radius:10px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:100;opacity:0;pointer-events:none;transition:.25s;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
@@ -288,7 +286,12 @@
 
       <div class="painel-secao">
         <h2>Contatos por semana</h2>
-        <div class="semanas" id="grafico-semanas"></div>
+        <div class="tabela-wrap compacta">
+          <table>
+            <thead><tr><th>Semana</th><th>Contatos</th></tr></thead>
+            <tbody id="grafico-semanas"></tbody>
+          </table>
+        </div>
       </div>
 
       <div class="painel-secao" id="painel-tabela">
@@ -327,7 +330,13 @@
       <div class="anual-destaques" id="anual-destaques"></div>
 
       <div class="painel-secao">
-        <div id="anual-blocos"></div>
+        <h2>Comparativo por mês</h2>
+        <div class="tabela-wrap compacta">
+          <table>
+            <thead><tr><th>Mês</th><th>Contatos</th><th>Consultas/Acomp.</th><th>Cirurgias</th></tr></thead>
+            <tbody id="tabela-anual-corpo"></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </main>

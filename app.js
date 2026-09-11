@@ -524,14 +524,13 @@ function renderCards(stats) {
 }
 
 function renderSemanas(stats) {
-  const max = Math.max(1, ...stats.porSemana);
+  const max = Math.max(0, ...stats.porSemana);
   const cont = document.getElementById('grafico-semanas');
   cont.innerHTML = stats.porSemana.map((v, i) => `
-    <div class="semana-col">
-      <div class="valor">${v}</div>
-      <div class="semana-barra" style="height:${Math.max(4, (v/max)*90)}px"></div>
-      <div class="rotulo">Sem. ${i+1}</div>
-    </div>
+    <tr class="${v === max && max > 0 ? 'semana-linha-max' : ''}">
+      <td>Semana ${i+1}</td>
+      <td class="semana-num">${v}</td>
+    </tr>
   `).join('');
 }
 
@@ -945,18 +944,18 @@ function renderAnual() {
   }).join('');
   document.getElementById('anual-destaques').innerHTML = destaquesHtml;
 
-  const blocosHtml = defs.map(d => {
-    const max = Math.max(1, ...meses.map(m => m[d.campo]));
-    const linhas = meses.map((m,i) => `
-      <div class="barra-mes-wrap">
-        <div class="mes-nome">${MESES_ABREV[i]}</div>
-        <div class="barra-fundo"><div class="fill" style="width:${(m[d.campo]/max)*100}%"></div></div>
-        <div class="num">${m[d.campo]}</div>
-      </div>
-    `).join('');
-    return `<div class="anual-bloco"><h3>${d.label} por mês</h3>${linhas}</div>`;
-  }).join('');
-  document.getElementById('anual-blocos').innerHTML = blocosHtml;
+  const maxPorCampo = {};
+  defs.forEach(d => { maxPorCampo[d.campo] = Math.max(0, ...meses.map(m => m[d.campo])); });
+
+  const linhasHtml = meses.map((m,i) => `
+    <tr>
+      <td class="mes-nome">${MESES_ABREV[i]}</td>
+      <td class="${m.contatos === maxPorCampo.contatos && m.contatos > 0 ? 'maior-valor' : ''}">${m.contatos}</td>
+      <td class="${m.consultas === maxPorCampo.consultas && m.consultas > 0 ? 'maior-valor' : ''}">${m.consultas}</td>
+      <td class="${m.cirurgias === maxPorCampo.cirurgias && m.cirurgias > 0 ? 'maior-valor' : ''}">${m.cirurgias}</td>
+    </tr>
+  `).join('');
+  document.getElementById('tabela-anual-corpo').innerHTML = linhasHtml;
 }
 
 // ============================================================
