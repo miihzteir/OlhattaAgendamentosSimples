@@ -43,6 +43,7 @@ let anoAnual = new Date().getFullYear(); // controla ano da aba Comparativo Anua
 let editingEntryId = null;
 let abaAtiva = 'agendamentos';
 let filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '' };
+let ordenacao = { campo: null, asc: true }; // null = ordem padrão (por data)
 let unsubDoc = null;
 let unsubEntries = null;
 let statusSincronizacao = 'ok'; // 'ok' | 'salvando' | 'erro'
@@ -207,9 +208,19 @@ function naoAgendadosOuDesmarcadosDoMes(mesKey) {
   // usa a data do desmarque/decisão quando existe; senão cai pra data de contato
   return state.entries.filter(e => STATUS_NAO_AGENDADOS.includes(e.status) && mesDe(e.dataAgendamento || e.dataContato) === mesKey);
 }
-// mantido pra telas que ainda precisam "todos os registros relevantes a este mês"
+// usado pela tabela (não pelos números do resumo): além dos contatos do mês,
+// traz também quem está "Aguardando" com o dia de recontatar caindo neste mês
+// (mesmo que o contato original tenha sido em outro mês) — assim o lembrete
+// aparece no mês certo, na data escolhida.
 function entriesDoMes(mesKey) {
-  return contatosDoMes(mesKey);
+  const porContato = contatosDoMes(mesKey);
+  const lembretesDeOutroMes = state.entries.filter(e =>
+    e.status === 'Aguardando' &&
+    e.dataAgendamento &&
+    mesDe(e.dataAgendamento) === mesKey &&
+    mesDe(e.dataContato) !== mesKey
+  );
+  return porContato.concat(lembretesDeOutroMes);
 }
 
 function statsDoMes(mesKey) {
@@ -454,24 +465,41 @@ function renderPendentes() {
   const painel = document.getElementById('painel-pendentes');
   const contagem = document.getElementById('pendentes-contagem');
   const lista = document.getElementById('lista-pendentes');
+  const hoje = hojeStr();
 
+  // ordena pelo dia escolhido pra contatar de novo (dataAgendamento); contatos
+  // antigos sem esse dia definido caem no fim, ordenados pela data de contato
   const pendentes = state.entries
     .filter(e => e.status === 'Aguardando')
-    .sort((a, b) => (a.dataContato || '').localeCompare(b.dataContato || ''));
+    .sort((a, b) => {
+      const da = a.dataAgendamento || '9999-99-99';
+      const db_ = b.dataAgendamento || '9999-99-99';
+      if (da !== db_) return da < db_ ? -1 : 1;
+      return (a.dataContato || '').localeCompare(b.dataContato || '');
+    });
 
   if (pendentes.length === 0) { painel.hidden = true; return; }
 
   painel.hidden = false;
   contagem.textContent = pendentes.length;
-  lista.innerHTML = pendentes.map(e => `
+  lista.innerHTML = pendentes.map(e => {
+    const dataLembrete = e.dataAgendamento || '';
+    const atrasado = dataLembrete && dataLembrete < hoje;
+    const ehHoje = dataLembrete === hoje;
+    const tagLembrete = dataLembrete
+      ? `Contatar em ${formatarData(dataLembrete)}${ehHoje ? ' · hoje' : atrasado ? ' · atrasado' : ''}`
+      : `Contato em ${formatarData(e.dataContato)}`;
+    const classeLembrete = ehHoje ? 'lembrete-hoje' : atrasado ? 'lembrete-atrasado' : '';
+    return `
     <div class="pendente-item">
       <div class="pendente-info">
         <b>${escapeHtml(e.nome || '(sem nome)')}</b> — ${escapeHtml(e.telefone || '')}${e.animal ? ' · ' + escapeHtml(e.animal) : ''}
-        <span>Contato em ${formatarData(e.dataContato)}${e.detalheMotivo ? ' · ' + escapeHtml(e.detalheMotivo) : ''}</span>
+        <span><span class="${classeLembrete}">${tagLembrete}</span>${e.detalheMotivo ? ' · ' + escapeHtml(e.detalheMotivo) : ''}</span>
       </div>
       <button type="button" class="btn-editar-pendente" data-id="${e.id}">Contatar / editar</button>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   lista.querySelectorAll('.btn-editar-pendente').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -615,6 +643,19 @@ function onMetaInputChange(ev) {
   });
 });
 
+document.querySelectorAll('#painel-tabela th.th-ordenavel').forEach(th => {
+  th.addEventListener('click', () => {
+    const campo = th.dataset.sort;
+    if (ordenacao.campo === campo) {
+      ordenacao.asc = !ordenacao.asc;
+    } else {
+      ordenacao.campo = campo;
+      ordenacao.asc = true;
+    }
+    renderTabela(mesKeyDe(currentDate));
+  });
+});
+
 function pillClasse(status) {
   if (status === 'Agendado') return 'agendado';
   if (status === 'Realizado') return 'realizado';
@@ -637,16 +678,46 @@ function renderTabela(mesKey) {
   if (filtros.cidade) lista = lista.filter(e => e.cidade === filtros.cidade);
   if (filtros.clinica) lista = lista.filter(e => e.clinica === filtros.clinica);
   if (filtros.busca) {
+    const q = filtros.busca;
     lista = lista.filter(e =>
-      (e.nome||'').toLowerCase().includes(filtros.busca) ||
-      (e.animal||'').toLowerCase().includes(filtros.busca) ||
-      (e.telefone||'').toLowerCase().includes(filtros.busca)
+      (e.nome||'').toLowerCase().includes(q) ||
+      (e.animal||'').toLowerCase().includes(q) ||
+      (e.telefone||'').toLowerCase().includes(q) ||
+      (e.clinica||'').toLowerCase().includes(q) ||
+      (e.cidade||'').toLowerCase().includes(q) ||
+      (e.tipo||'').toLowerCase().includes(q) ||
+      (e.status||'').toLowerCase().includes(q) ||
+      (e.indicacao||'').toLowerCase().includes(q) ||
+      (e.motivo||'').toLowerCase().includes(q) ||
+      (e.detalheMotivo||'').toLowerCase().includes(q) ||
+      (e.obs||'').toLowerCase().includes(q) ||
+      formatarData(e.dataContato).includes(q) ||
+      formatarData(e.dataAgendamento).includes(q)
     );
   }
-  lista = lista.slice().sort((a,b) => {
-    const da = a.dataAgendamento || a.dataContato || '';
-    const db_ = b.dataAgendamento || b.dataContato || '';
-    return da < db_ ? -1 : da > db_ ? 1 : 0;
+  if (ordenacao.campo) {
+    const campo = ordenacao.campo;
+    lista = lista.slice().sort((a,b) => {
+      const va = (a[campo] || '').toString().toLowerCase();
+      const vb = (b[campo] || '').toString().toLowerCase();
+      if (va === '' && vb === '') return 0;
+      if (va === '') return 1;
+      if (vb === '') return -1;
+      const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+      return ordenacao.asc ? cmp : -cmp;
+    });
+  } else {
+    lista = lista.slice().sort((a,b) => {
+      const da = a.dataAgendamento || a.dataContato || '';
+      const db_ = b.dataAgendamento || b.dataContato || '';
+      return da < db_ ? -1 : da > db_ ? 1 : 0;
+    });
+  }
+
+  document.querySelectorAll('#painel-tabela th.th-ordenavel').forEach(th => {
+    const ativo = ordenacao.campo === th.dataset.sort;
+    th.classList.toggle('ordem-ativa', ativo);
+    th.querySelector('.seta-ordem').textContent = ativo ? (ordenacao.asc ? '▲' : '▼') : '';
   });
 
   const hoje = hojeStr();
@@ -728,8 +799,8 @@ function atualizarVisibilidadeMotivo() {
   const ehAguardando = status === 'Aguardando';
   document.getElementById('campo-motivo').hidden = !(precisaMotivo || ehAguardando);
   document.getElementById('campo-motivo-select').hidden = !precisaMotivo;
-  document.getElementById('label-detalhe-motivo').textContent = ehAguardando ? 'Observação (quando contatar de novo, etc.)' : 'Detalhes do motivo';
-  document.getElementById('f-data2-label').textContent = precisaMotivo ? 'Data do desmarque/contato' : 'Data de agendamento';
+  document.getElementById('label-detalhe-motivo').textContent = ehAguardando ? 'Observação (opcional)' : 'Detalhes do motivo';
+  document.getElementById('f-data2-label').textContent = precisaMotivo ? 'Data do desmarque/contato' : (ehAguardando ? 'Contatar novamente em' : 'Data de agendamento');
 }
 
 document.getElementById('f-motivo').addEventListener('change', ev => {
