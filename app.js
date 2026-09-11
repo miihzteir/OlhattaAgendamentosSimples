@@ -42,7 +42,7 @@ let currentDate = new Date();          // controla mês/ano da aba Agendamentos
 let anoAnual = new Date().getFullYear(); // controla ano da aba Comparativo Anual
 let editingEntryId = null;
 let abaAtiva = 'agendamentos';
-let filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '' };
+let filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '' };
 let ordenacao = { campo: null, asc: true }; // null = ordem padrão (por data)
 let unsubDoc = null;
 let unsubEntries = null;
@@ -65,21 +65,27 @@ document.getElementById('btn-login-google').addEventListener('click', () => {
 document.getElementById('btn-logout').addEventListener('click', () => auth.signOut());
 
 auth.onAuthStateChanged(user => {
+  // esconde a tela de "carregando" assim que o Firebase termina de conferir
+  // se já existe uma sessão salva — só depois disso decide o que mostrar,
+  // pra login/app não aparecerem piscando por engano nesse meio-tempo.
+  document.getElementById('tela-carregando').style.display = 'none';
+
   if (user) {
     const email = (user.email || '').toLowerCase();
     const permitido = EMAILS_PERMITIDOS.map(e => e.toLowerCase()).includes(email);
     if (!permitido) {
+      document.getElementById('tela-login').classList.add('mostrar');
       document.getElementById('login-erro').style.display = 'block';
       document.getElementById('login-status').textContent = '';
       auth.signOut();
       return;
     }
-    document.getElementById('tela-login').style.display = 'none';
+    document.getElementById('tela-login').classList.remove('mostrar');
     document.getElementById('app').style.display = 'block';
     document.getElementById('user-email').textContent = user.email;
     iniciarEscuta();
   } else {
-    document.getElementById('tela-login').style.display = 'flex';
+    document.getElementById('tela-login').classList.add('mostrar');
     document.getElementById('app').style.display = 'none';
     if (unsubDoc) { unsubDoc(); unsubDoc = null; }
     if (unsubEntries) { unsubEntries(); unsubEntries = null; }
@@ -314,6 +320,7 @@ function popularSelects() {
   preencher('filtro-tipo', cat.tipos, 'Tipo (todos)');
   preencher('filtro-cidade', cat.cidades, 'Cidade (todas)');
   preencher('filtro-clinica', cat.clinicas, 'Clínica (todas)');
+  preencher('filtro-motivo', cat.motivos, 'Motivo (todos)');
 
   preencher('f-clinica', cat.clinicas, null);
   preencher('f-cidade', cat.cidades, null);
@@ -632,13 +639,14 @@ function onMetaInputChange(ev) {
 }
 
 // ---------- Filtros ----------
-['filtro-busca','filtro-status','filtro-tipo','filtro-cidade','filtro-clinica'].forEach(id => {
+['filtro-busca','filtro-status','filtro-tipo','filtro-cidade','filtro-clinica','filtro-motivo'].forEach(id => {
   document.getElementById(id).addEventListener('input', () => {
     filtros.busca = document.getElementById('filtro-busca').value.trim().toLowerCase();
     filtros.status = document.getElementById('filtro-status').value;
     filtros.tipo = document.getElementById('filtro-tipo').value;
     filtros.cidade = document.getElementById('filtro-cidade').value;
     filtros.clinica = document.getElementById('filtro-clinica').value;
+    filtros.motivo = document.getElementById('filtro-motivo').value;
     renderTabela(mesKeyDe(currentDate));
   });
 });
@@ -677,6 +685,7 @@ function renderTabela(mesKey) {
   if (filtros.tipo) lista = lista.filter(e => e.tipo === filtros.tipo);
   if (filtros.cidade) lista = lista.filter(e => e.cidade === filtros.cidade);
   if (filtros.clinica) lista = lista.filter(e => e.clinica === filtros.clinica);
+  if (filtros.motivo) lista = lista.filter(e => e.motivo === filtros.motivo);
   if (filtros.busca) {
     const q = filtros.busca;
     lista = lista.filter(e =>
@@ -739,8 +748,8 @@ function renderTabela(mesKey) {
       <td><span class="pill ${pillClasse(e.status)}">${e.status||''}</span></td>
       <td style="text-align:center"><input type="checkbox" class="chk-agendado" data-id="${e.id}" ${jaAgendado ? 'checked' : ''} title="${jaAgendado ? 'Já agendado' : 'Marcar como agendado'}"></td>
       <td>${formatarData(e.dataAgendamento)}${ehHoje ? '<span class="tag-hoje">Hoje</span>' : ''}</td>
-      <td class="obs-cel" title="${escapeHtml((e.motivo||'') + (e.detalheMotivo ? ' — '+e.detalheMotivo : ''))}"><span>${escapeHtml(e.motivo||'—')}</span>${e.detalheMotivo ? '<span class="detalhe-sub">'+escapeHtml(e.detalheMotivo)+'</span>' : ''}</td>
-      <td class="obs-cel" title="${escapeHtml(e.obs||'')}"><span>${escapeHtml(e.obs||'')}</span></td>
+      ${celObsClicavel(e.motivo, e.detalheMotivo, 'Motivo')}
+      ${celObsClicavel(e.obs, '', 'Observação')}
       <td class="acoes"><button class="btn outline sm btn-editar">Editar</button></td>
     </tr>
   `;
@@ -779,7 +788,34 @@ function renderTabela(mesKey) {
       }).finally(() => { chk.disabled = false; });
     });
   });
+
+  corpo.querySelectorAll('.obs-cel.clicavel').forEach(cel => {
+    cel.addEventListener('click', () => abrirModalTexto(cel.dataset.titulo, cel.dataset.completo));
+  });
 }
+
+// Monta a célula de Motivo/Obs.: texto curto some direto na tabela; se houver
+// texto, a célula fica clicável e abre um modalzinho com o texto inteiro —
+// em vez de esticar a linha da tabela pra caber tudo.
+function celObsClicavel(principal, extra, titulo) {
+  const completo = (principal || '') + (extra ? ' — ' + extra : '');
+  if (!completo) return `<td class="obs-cel"><span>—</span></td>`;
+  return `<td class="obs-cel clicavel" data-titulo="${escapeHtml(titulo)}" data-completo="${escapeHtml(completo)}" title="Toque para ver o texto completo">
+    <span>${escapeHtml(principal || '—')}</span>${extra ? '<span class="detalhe-sub">'+escapeHtml(extra)+'</span>' : ''}
+  </td>`;
+}
+
+function abrirModalTexto(titulo, texto) {
+  document.getElementById('modal-texto-titulo').textContent = titulo || '';
+  document.getElementById('modal-texto-corpo').textContent = texto || '';
+  document.getElementById('modal-texto').hidden = false;
+}
+document.getElementById('fechar-modal-texto').addEventListener('click', () => {
+  document.getElementById('modal-texto').hidden = true;
+});
+document.getElementById('modal-texto').addEventListener('click', ev => {
+  if (ev.target.id === 'modal-texto') document.getElementById('modal-texto').hidden = true;
+});
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

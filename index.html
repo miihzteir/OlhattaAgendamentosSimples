@@ -39,8 +39,14 @@
   button{font-family:inherit;cursor:pointer;}
   input,select,textarea{font-family:inherit;}
 
+  /* ---------- CARREGANDO (evita piscar a tela de login enquanto o Firebase confere se já tá logado) ---------- */
+  #tela-carregando{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,var(--verde-pinho) 0%,var(--verde-pinho-escuro) 100%);}
+  #tela-carregando .aro{width:40px;height:40px;border-radius:50%;border:3px solid rgba(250,246,236,.3);border-top-color:var(--creme);animation:girar .8s linear infinite;}
+  @keyframes girar{to{transform:rotate(360deg);}}
+
   /* ---------- LOGIN ---------- */
-  #tela-login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,var(--verde-pinho) 0%,var(--verde-pinho-escuro) 100%);padding:24px;}
+  #tela-login{min-height:100vh;display:none;align-items:center;justify-content:center;background:linear-gradient(160deg,var(--verde-pinho) 0%,var(--verde-pinho-escuro) 100%);padding:24px;}
+  #tela-login.mostrar{display:flex;}
   .login-card{background:var(--branco);border-radius:20px;padding:40px 32px;max-width:380px;width:100%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.25);}
   .login-card .logo{width:72px;height:72px;border-radius:18px;margin:0 auto 18px;display:block;}
   .login-card h1{font-size:22px;margin:0 0 6px;color:var(--verde-pinho);}
@@ -167,6 +173,11 @@
   td.obs-cel{white-space:nowrap;max-width:180px;color:var(--texto-claro);overflow:hidden;}
   td.obs-cel > span:first-child{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .detalhe-sub{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-style:italic;}
+  td.obs-cel.clicavel{cursor:pointer;}
+  td.obs-cel.clicavel > span:first-child{text-decoration:underline dotted;text-decoration-color:var(--marrom-claro);text-underline-offset:2px;}
+  td.obs-cel.clicavel:hover{background:var(--creme-escuro);}
+  .modal-texto-caixa{max-width:420px;}
+  #modal-texto-corpo{white-space:pre-wrap;line-height:1.6;color:var(--texto);font-size:14px;margin:0;}
   td.acoes{display:flex;gap:6px;align-items:flex-start;}
   td:has(> .chk-agendado){text-align:center;}
   .vazio{padding:40px 20px;text-align:center;color:var(--texto-claro);font-size:14px;}
@@ -229,6 +240,11 @@
 </style>
 </head>
 <body>
+
+<!-- ===================== CARREGANDO ===================== -->
+<div id="tela-carregando">
+  <div class="aro"></div>
+</div>
 
 <!-- ===================== LOGIN ===================== -->
 <div id="tela-login">
@@ -306,6 +322,7 @@
           <select id="filtro-tipo"><option value="">Tipo (todos)</option></select>
           <select id="filtro-cidade"><option value="">Cidade (todas)</option></select>
           <select id="filtro-clinica"><option value="">Clínica (todas)</option></select>
+          <select id="filtro-motivo"><option value="">Motivo (todos)</option></select>
           <button class="btn marrom" id="btn-novo">+ Novo contato</button>
         </div>
         <div class="tabela-wrap">
@@ -396,6 +413,15 @@
         <button type="submit" class="btn marrom">Salvar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ===================== MODAL: TEXTO COMPLETO (motivo/obs) ===================== -->
+<div class="overlay" id="modal-texto" hidden>
+  <div class="modal modal-texto-caixa">
+    <button class="fechar" id="fechar-modal-texto">&times;</button>
+    <h2 id="modal-texto-titulo">Observação</h2>
+    <p id="modal-texto-corpo"></p>
   </div>
 </div>
 
