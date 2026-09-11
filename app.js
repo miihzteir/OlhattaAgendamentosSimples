@@ -539,8 +539,8 @@ function renderSemanas(stats) {
 const CAMPOS_META = [
   { key: 'CA', titulo: 'Consultas e Acompanhamentos', getAtual: s => s.consultasEAcompanhamentos },
   { key: 'Cirurgias', titulo: 'Cirurgias', getAtual: s => s.cirurgias },
-  { key: 'Contatos', titulo: 'Contatos', getAtual: s => s.total },
-  { key: 'Produtos', titulo: 'Produtos (R$)', getAtual: null } // manual
+  { key: 'Exames', titulo: 'Exames', manual: true },
+  { key: 'Produtos', titulo: 'Produtos (R$)', manual: true, moeda: true }
 ];
 
 function renderMetas(mesKey, stats) {
@@ -551,7 +551,7 @@ function renderMetas(mesKey, stats) {
     const meta = Number(metasDoMes['meta'+campo.key]) || 0;
     const super_ = Number(metasDoMes['super'+campo.key]) || 0;
     let atual;
-    if (campo.key === 'Produtos') atual = Number(metasDoMes['atualProdutos']) || 0;
+    if (campo.manual) atual = Number(metasDoMes['atual'+campo.key]) || 0;
     else atual = campo.getAtual(stats);
 
     const pctMeta = meta > 0 ? Math.min(100, (atual/meta)*100) : 0;
@@ -564,15 +564,17 @@ function renderMetas(mesKey, stats) {
       else { statusTxt = 'Meta em andamento...'; statusClasse = 'andamento'; }
     }
 
-    const campoAtualManual = campo.key === 'Produtos'
-      ? `<label style="flex:1">Atual (R$)<input type="number" min="0" step="0.01" data-mkey="${mesKey}" data-campo="atualProdutos" value="${atual||''}" class="input-meta"></label>`
+    const formatar = v => campo.moeda ? 'R$ ' + v.toFixed(2) : v;
+
+    const campoAtualManual = campo.manual
+      ? `<label style="flex:1">Atual${campo.moeda ? ' (R$)' : ''}<input type="number" min="0" step="${campo.moeda ? '0.01' : '1'}" data-mkey="${mesKey}" data-campo="atual${campo.key}" value="${atual||''}" class="input-meta"></label>`
       : '';
 
     return `
       <div class="meta-linha">
         <div class="meta-cabeca">
           <span class="meta-titulo">${campo.titulo}</span>
-          <span class="meta-valor">${campo.key==='Produtos' ? 'R$ '+atual.toFixed(2) : atual}${meta?`<span class="meta-de"> / ${campo.key==='Produtos'?'R$ '+meta.toFixed(2):meta}</span>`:''}</span>
+          <span class="meta-valor">${formatar(atual)}${meta?`<span class="meta-de"> / ${formatar(meta)}</span>`:''}</span>
         </div>
         <div class="barra-progresso">
           <div class="preenchido" style="width:${pctMeta}%"></div>
