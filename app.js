@@ -717,7 +717,7 @@ function renderTabela(mesKey) {
   document.querySelectorAll('#painel-tabela th.th-ordenavel').forEach(th => {
     const ativo = ordenacao.campo === th.dataset.sort;
     th.classList.toggle('ordem-ativa', ativo);
-    th.querySelector('.seta-ordem').textContent = ativo ? (ordenacao.asc ? '▲' : '▼') : '';
+    th.querySelector('.seta-ordem').textContent = ativo ? (ordenacao.asc ? '▲' : '▼') : '⇅';
   });
 
   const hoje = hojeStr();
