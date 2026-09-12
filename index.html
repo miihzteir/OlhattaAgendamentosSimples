@@ -172,7 +172,6 @@
   .tabela-wrap.compacta th,.tabela-wrap.compacta td{white-space:normal;}
   td.obs-cel{white-space:nowrap;max-width:180px;color:var(--texto-claro);overflow:hidden;}
   td.obs-cel > span:first-child{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .detalhe-sub{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-style:italic;}
   td.obs-cel.clicavel{cursor:pointer;}
   td.obs-cel.clicavel > span:first-child{text-decoration:underline dotted;text-decoration-color:var(--marrom-claro);text-underline-offset:2px;}
   td.obs-cel.clicavel:hover{background:var(--creme-escuro);}
@@ -184,8 +183,10 @@
   tr.linha-hoje td{background:rgba(138,90,52,.08);}
   tr.linha-hoje td:first-child{box-shadow:inset 3px 0 0 var(--marrom);}
   .tag-hoje{display:inline-flex;align-items:center;line-height:1;margin-left:6px;padding:4px 8px;border-radius:20px;font-size:10px;font-weight:700;background:var(--marrom);color:var(--creme);vertical-align:middle;white-space:nowrap;}
-  .badge-alerta{display:block;margin-top:2px;font-size:11px;font-weight:700;color:#a9660f;}
-  .badge-mesmo-contato{display:block;margin-top:2px;font-size:11px;font-weight:700;color:var(--marrom);}
+  /* sempre na mesma linha do nome (nunca embaixo) — pra nenhuma linha da tabela
+     ficar mais alta que as outras por causa de um aviso */
+  .badge-alerta{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;font-size:10.5px;font-weight:700;color:#a9660f;background:#fdf1e0;white-space:nowrap;vertical-align:middle;}
+  .badge-mesmo-contato{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;font-size:10.5px;font-weight:700;color:var(--marrom-escuro);background:var(--creme-escuro);white-space:nowrap;vertical-align:middle;}
   /* coluna de ações (Editar) fica grudada na direita, sempre visível, sem precisar
      arrastar a rolagem até o fim só pra achar o botão de editar */
   #painel-tabela td.acoes{position:sticky;right:0;background:var(--branco);box-shadow:-8px 0 10px -8px rgba(0,0,0,.2);}

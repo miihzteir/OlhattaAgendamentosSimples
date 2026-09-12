@@ -816,8 +816,10 @@ function renderTabela(mesKey) {
 function celObsClicavel(principal, extra, titulo) {
   const completo = (principal || '') + (extra ? ' — ' + extra : '');
   if (!completo) return `<td class="obs-cel"><span>—</span></td>`;
+  // tudo numa linha só (trunca com reticências) — nunca deixa a linha da
+  // tabela crescer; o texto inteiro (motivo + detalhe) só aparece no modal
   return `<td class="obs-cel clicavel" data-titulo="${escapeHtml(titulo)}" data-completo="${escapeHtml(completo)}" title="Toque para ver o texto completo">
-    <span>${escapeHtml(principal || '—')}</span>${extra ? '<span class="detalhe-sub">'+escapeHtml(extra)+'</span>' : ''}
+    <span>${escapeHtml(completo)}</span>
   </td>`;
 }
 
