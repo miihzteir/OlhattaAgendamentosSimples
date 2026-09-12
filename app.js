@@ -610,10 +610,14 @@ function renderMetas(mesKey, stats) {
     const pctMeta = meta > 0 ? Math.min(100, (atual/meta)*100) : 0;
     const pctSuper = (super_ > 0 && super_ >= meta) ? Math.min(100, (meta/super_)*100) : null;
 
+    // mês encerrado = já virou o mês (mesKey é "YYYY-MM", dá pra comparar como texto)
+    const mesEncerrado = mesKey < mesKeyDe(new Date());
+
     let statusTxt = 'Defina a meta', statusClasse = 'andamento';
     if (meta > 0) {
       if (super_ > 0 && atual >= super_) { statusTxt = 'Supermeta batida!'; statusClasse = 'super'; }
       else if (atual >= meta) { statusTxt = 'Meta batida!'; statusClasse = 'ok'; }
+      else if (mesEncerrado) { statusTxt = 'Meta não batida'; statusClasse = 'falhou'; }
       else { statusTxt = 'Meta em andamento...'; statusClasse = 'andamento'; }
     }
 
