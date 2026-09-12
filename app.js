@@ -460,15 +460,17 @@ function renderAgendamentos() {
   const stats = statsDoMes(mesKey);
 
   renderCards(stats);
-  renderPendentes();
+  renderPendentes(mesKey);
   renderSemanas(stats);
   renderMetas(mesKey, stats);
   renderTabela(mesKey);
 }
 
-// Contatos com status "Aguardando" (a recontatar depois) — mostrados sempre,
-// independente do mês selecionado, pra não ficarem esquecidos.
-function renderPendentes() {
+// Contatos com status "Aguardando" (a recontatar depois) — mostra só quem tem
+// o dia de recontatar caindo no mês que está sendo visto agora (mesmo lugar que
+// a tabela já mostra o lembrete), MAIS quem já está atrasado (não pode sumir só
+// porque virou o mês), mesmo que o atraso seja de outro mês.
+function renderPendentes(mesKey) {
   const painel = document.getElementById('painel-pendentes');
   const contagem = document.getElementById('pendentes-contagem');
   const lista = document.getElementById('lista-pendentes');
@@ -478,6 +480,11 @@ function renderPendentes() {
   // antigos sem esse dia definido caem no fim, ordenados pela data de contato
   const pendentes = state.entries
     .filter(e => e.status === 'Aguardando')
+    .filter(e => {
+      const dataLembrete = e.dataAgendamento || e.dataContato || '';
+      const atrasado = !!dataLembrete && dataLembrete < hoje;
+      return atrasado || mesDe(e.dataAgendamento || e.dataContato) === mesKey;
+    })
     .sort((a, b) => {
       const da = a.dataAgendamento || '9999-99-99';
       const db_ = b.dataAgendamento || '9999-99-99';
