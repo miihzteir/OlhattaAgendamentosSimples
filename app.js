@@ -470,7 +470,7 @@ function renderAgendamentos() {
 
   renderCards(stats);
   renderPendentes(mesKey);
-  renderSemanas(stats);
+  renderSemanas(stats, mesKey);
   renderMetas(mesKey, stats);
   renderTabela(mesKey);
 }
@@ -574,11 +574,14 @@ function renderCards(stats) {
   `;
 }
 
-function renderSemanas(stats) {
-  const max = Math.max(0, ...stats.porSemana);
+function renderSemanas(stats, mesKey) {
+  // destaca a semana em que estamos HOJE (não a de mais contatos) — só faz
+  // sentido marcar isso quando o mês exibido é o mês atual
+  const ehMesAtual = mesKey === mesKeyDe(new Date());
+  const semanaAtual = ehMesAtual ? semanaDoMes(hojeStr()) : null;
   const cont = document.getElementById('grafico-semanas');
   cont.innerHTML = stats.porSemana.map((v, i) => `
-    <tr class="${v === max && max > 0 ? 'semana-linha-max' : ''}">
+    <tr class="${(i+1) === semanaAtual ? 'semana-linha-atual' : ''}">
       <td>Semana ${i+1}</td>
       <td class="semana-num">${v}</td>
     </tr>
