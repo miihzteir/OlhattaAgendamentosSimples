@@ -207,6 +207,13 @@ function normalizarTelefone(t) { return (t || '').replace(/\D/g, ''); }
 function contatosDoMes(mesKey) {
   return state.entries.filter(e => mesDe(e.dataContato) === mesKey);
 }
+// pra estatísticas de "quantos contatos" (não pra tabela, que continua mostrando
+// todo mundo): quando o tutor liga uma vez só e agenda mais de um animal, o
+// segundo (e os seguintes) podem ser marcados como "mesmo telefonema" pra não
+// inflar a contagem de contatos — mas continuam contando normal em agendamentos.
+function contatosUnicosDoMes(mesKey) {
+  return contatosDoMes(mesKey).filter(e => !e.mesmoContatoOutroAnimal);
+}
 function agendadosDoMes(mesKey) {
   return state.entries.filter(e => STATUS_AGENDADOS.includes(e.status) && mesDe(e.dataAgendamento) === mesKey);
 }
@@ -230,7 +237,7 @@ function entriesDoMes(mesKey) {
 }
 
 function statsDoMes(mesKey) {
-  const contatos = contatosDoMes(mesKey);
+  const contatos = contatosUnicosDoMes(mesKey);
   const agendados = agendadosDoMes(mesKey);
   const naoAgendadosLista = naoAgendadosOuDesmarcadosDoMes(mesKey);
   const tipos = state.categorias.tipos;
@@ -745,7 +752,7 @@ function renderTabela(mesKey) {
     const jaAgendado = STATUS_AGENDADOS.includes(e.status);
     return `
     <tr data-id="${e.id}" class="${ehHoje ? 'linha-hoje' : ''}">
-      <td>${escapeHtml(e.nome||'')}${desmarques >= 2 ? `<span class="badge-alerta">já desmarcou ${desmarques}x</span>` : ''}</td>
+      <td>${escapeHtml(e.nome||'')}${desmarques >= 2 ? `<span class="badge-alerta">já desmarcou ${desmarques}x</span>` : ''}${e.mesmoContatoOutroAnimal ? `<span class="badge-mesmo-contato">mesmo telefonema</span>` : ''}</td>
       <td>${escapeHtml(e.telefone||'')}</td>
       <td>${escapeHtml(e.animal||'')}</td>
       <td>${escapeHtml(e.clinica||'')}</td>
@@ -878,6 +885,7 @@ function abrirModalEntry(entry) {
   document.getElementById('f-nome').value = entry ? entry.nome||'' : '';
   document.getElementById('f-telefone').value = entry ? entry.telefone||'' : '';
   document.getElementById('f-animal').value = entry ? entry.animal||'' : '';
+  document.getElementById('f-mesmo-contato').checked = entry ? !!entry.mesmoContatoOutroAnimal : false;
   document.getElementById('f-indicacao').value = entry ? entry.indicacao||'' : '';
   document.getElementById('f-clinica').value = entry ? entry.clinica||'' : (state.categorias.clinicas[0]||'');
   document.getElementById('f-cidade').value = entry ? entry.cidade||'' : (state.categorias.cidades[0]||'');
@@ -913,6 +921,7 @@ document.getElementById('form-entry').addEventListener('submit', ev => {
     cidade: document.getElementById('f-cidade').value,
     tipo: document.getElementById('f-tipo').value,
     dataContato: document.getElementById('f-datacontato').value,
+    mesmoContatoOutroAnimal: document.getElementById('f-mesmo-contato').checked,
     status: status,
     dataAgendamento: document.getElementById('f-data2').value,
     motivo: precisaMotivo ? document.getElementById('f-motivo').value : '',

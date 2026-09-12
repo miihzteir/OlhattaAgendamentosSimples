@@ -185,6 +185,7 @@
   tr.linha-hoje td:first-child{box-shadow:inset 3px 0 0 var(--marrom);}
   .tag-hoje{display:inline-flex;align-items:center;line-height:1;margin-left:6px;padding:4px 8px;border-radius:20px;font-size:10px;font-weight:700;background:var(--marrom);color:var(--creme);vertical-align:middle;white-space:nowrap;}
   .badge-alerta{display:block;margin-top:2px;font-size:11px;font-weight:700;color:#a9660f;}
+  .badge-mesmo-contato{display:block;margin-top:2px;font-size:11px;font-weight:700;color:var(--marrom);}
   .chk-agendado{width:18px;height:18px;accent-color:var(--marrom);cursor:pointer;margin-top:2px;}
 
   /* modal */
@@ -193,6 +194,8 @@
   .modal h2{margin:0 0 4px;color:var(--verde-pinho);font-size:18px;}
   .modal .fechar{float:right;background:none;border:none;font-size:20px;color:var(--texto-claro);}
   .campo{margin-bottom:13px;position:relative;}
+  .check-inline{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--texto-claro);margin:-4px 0 16px;cursor:pointer;line-height:1.4;}
+  .check-inline input{margin-top:3px;flex-shrink:0;width:15px;height:15px;accent-color:var(--marrom);cursor:pointer;}
   .campo label{display:block;font-size:12px;font-weight:700;color:var(--texto-claro);margin-bottom:5px;}
   .campo input,.campo select,.campo textarea{width:100%;padding:10px 11px;border:1px solid var(--borda);border-radius:8px;font-size:14px;background:var(--creme);}
   .campo textarea{resize:vertical;min-height:56px;}
@@ -382,6 +385,10 @@
         <div class="campo"><label>Animal</label><input type="text" id="f-animal"></div>
         <div class="campo"><label>Indicação</label><input type="text" id="f-indicacao" placeholder="Quem indicou (opcional)"></div>
       </div>
+      <label class="check-inline">
+        <input type="checkbox" id="f-mesmo-contato">
+        É outro animal do mesmo telefonema (tutor já ligou e agendou mais de um) — não conta como contato novo nas estatísticas
+      </label>
       <div class="linha2">
         <div class="campo"><label>Clínica</label><select id="f-clinica"></select></div>
         <div class="campo"><label>Cidade</label><select id="f-cidade"></select></div>
