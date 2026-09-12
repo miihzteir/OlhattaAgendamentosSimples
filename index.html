@@ -159,8 +159,8 @@
 
   .tabela-wrap{overflow-x:auto;border:1px solid var(--borda);border-radius:var(--raio);background:var(--branco);}
   table{width:100%;border-collapse:collapse;min-width:980px;}
-  th,td{padding:12px;text-align:left;font-size:13px;line-height:1.4;border-bottom:1px solid var(--borda);white-space:nowrap;vertical-align:top;}
-  th{background:var(--verde-pinho);color:var(--creme);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:14px 12px;}
+  th,td{padding:8px 9px;text-align:left;font-size:12.5px;line-height:1.35;border-bottom:1px solid var(--borda);white-space:nowrap;vertical-align:top;}
+  th{background:var(--verde-pinho);color:var(--creme);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:11px 9px;}
   th.th-ordenavel{cursor:pointer;user-select:none;}
   th.th-ordenavel:hover{background:var(--verde-pinho-escuro);}
   th.th-ordenavel .seta-ordem{display:inline-block;margin-left:4px;opacity:.55;}
@@ -186,6 +186,12 @@
   .tag-hoje{display:inline-flex;align-items:center;line-height:1;margin-left:6px;padding:4px 8px;border-radius:20px;font-size:10px;font-weight:700;background:var(--marrom);color:var(--creme);vertical-align:middle;white-space:nowrap;}
   .badge-alerta{display:block;margin-top:2px;font-size:11px;font-weight:700;color:#a9660f;}
   .badge-mesmo-contato{display:block;margin-top:2px;font-size:11px;font-weight:700;color:var(--marrom);}
+  /* coluna de ações (Editar) fica grudada na direita, sempre visível, sem precisar
+     arrastar a rolagem até o fim só pra achar o botão de editar */
+  #painel-tabela td.acoes{position:sticky;right:0;background:var(--branco);box-shadow:-8px 0 10px -8px rgba(0,0,0,.2);}
+  #painel-tabela th:last-child{position:sticky;right:0;background:var(--verde-pinho);z-index:2;}
+  #painel-tabela tr:hover td.acoes{background:var(--creme);}
+  #painel-tabela tr.linha-hoje td.acoes{background:#f3ece2;}
   .chk-agendado{width:18px;height:18px;accent-color:var(--marrom);cursor:pointer;margin-top:2px;}
 
   /* modal */
