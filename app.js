@@ -222,18 +222,20 @@ function naoAgendadosOuDesmarcadosDoMes(mesKey) {
   return state.entries.filter(e => STATUS_NAO_AGENDADOS.includes(e.status) && mesDe(e.dataAgendamento || e.dataContato) === mesKey);
 }
 // usado pela tabela (não pelos números do resumo): além dos contatos do mês,
-// traz também quem está "Aguardando" com o dia de recontatar caindo neste mês
-// (mesmo que o contato original tenha sido em outro mês) — assim o lembrete
-// aparece no mês certo, na data escolhida.
+// traz também qualquer contato cuja data de agendamento/recontato/desmarque
+// caia neste mês, mesmo que o contato original tenha sido feito em outro mês
+// (ex: contato em agosto, consulta realizada em setembro) — assim ele aparece
+// nos dois meses na tabela, mas os quadrinhos de resumo continuam contando
+// cada coisa só uma vez (contato no mês do contato, agendamento no mês do
+// agendamento), sem duplicar nada.
 function entriesDoMes(mesKey) {
   const porContato = contatosDoMes(mesKey);
-  const lembretesDeOutroMes = state.entries.filter(e =>
-    e.status === 'Aguardando' &&
+  const porOutraDataNesseMes = state.entries.filter(e =>
     e.dataAgendamento &&
     mesDe(e.dataAgendamento) === mesKey &&
     mesDe(e.dataContato) !== mesKey
   );
-  return porContato.concat(lembretesDeOutroMes);
+  return porContato.concat(porOutraDataNesseMes);
 }
 
 function statsDoMes(mesKey) {
