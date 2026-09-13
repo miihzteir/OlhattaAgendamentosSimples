@@ -261,6 +261,10 @@
     .card h3{font-size:10.5px;}
     .card .num{font-size:24px;}
     .painel-secao{padding:14px 16px;}
+    /* no celular a tela é estreita; Editar e Duplicar lado a lado tomavam
+       metade da largura visível da tabela — empilhados ficam bem mais estreitos */
+    #painel-tabela td.acoes{flex-direction:column;gap:4px;padding:8px;}
+    #painel-tabela td.acoes .btn.sm{padding:5px 8px;font-size:11px;width:100%;text-align:center;}
   }
 </style>
 </head>
