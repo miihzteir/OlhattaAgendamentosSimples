@@ -292,8 +292,25 @@ function renderTudo() {
   if (!carregouDoc || !carregouEntries) return;
   popularSelects();
   renderAba();
+  atualizarBadgeAtrasados();
   if (!document.getElementById('modal-entry').hidden) atualizarPainelHistorico();
   if (!document.getElementById('modal-categorias').hidden) renderCategoriasPainel();
+}
+
+// Contador vermelho na aba "Agendamentos": quantos "Aguardando" já passaram do
+// dia marcado pra recontatar — aparece não importa em qual mês você esteja
+// olhando, pra nunca esquecer que tem atrasado sem precisar ir atrás.
+function atualizarBadgeAtrasados() {
+  const badge = document.getElementById('badge-atrasados');
+  if (!badge) return;
+  const hoje = hojeStr();
+  const atrasados = state.entries.filter(e => {
+    if (e.status !== 'Aguardando') return false;
+    const data = e.dataAgendamento || e.dataContato || '';
+    return !!data && data < hoje;
+  }).length;
+  badge.textContent = atrasados;
+  badge.hidden = atrasados === 0;
 }
 
 function renderAba() {
@@ -516,7 +533,7 @@ function renderPendentes(mesKey) {
     return `
     <div class="pendente-item">
       <div class="pendente-info">
-        <b>${escapeHtml(e.nome || '(sem nome)')}</b> — ${escapeHtml(e.telefone || '')}${e.animal ? ' · ' + escapeHtml(e.animal) : ''}
+        <b>${escapeHtml(e.nome || '(sem nome)')}</b> — ${telefoneClicavel(e.telefone)}${e.animal ? ' · ' + escapeHtml(e.animal) : ''}
         <span><span class="${classeLembrete}">${tagLembrete}</span>${e.detalheMotivo ? ' · ' + escapeHtml(e.detalheMotivo) : ''}</span>
       </div>
       <button type="button" class="btn-editar-pendente" data-id="${e.id}">Contatar / editar</button>
@@ -592,7 +609,7 @@ function renderSemanas(stats, mesKey) {
 const CAMPOS_META = [
   { key: 'CA', titulo: 'Consultas e Acompanhamentos', getAtual: s => s.consultasEAcompanhamentos },
   { key: 'Cirurgias', titulo: 'Cirurgias', getAtual: s => s.cirurgias },
-  { key: 'Exames', titulo: 'Exames', manual: true },
+  { key: 'Exames', titulo: 'Exames (R$)', manual: true, moeda: true },
   { key: 'Produtos', titulo: 'Produtos (R$)', manual: true, moeda: true }
 ];
 
@@ -727,22 +744,36 @@ function renderTabela(mesKey) {
       formatarData(e.dataAgendamento).includes(q)
     );
   }
+  // dentro do mesmo dia, sempre do horário mais cedo pro mais tarde (quem não
+  // tem horário definido fica por último naquele dia) — vale tanto na ordem
+  // padrão quanto ao clicar pra ordenar pela coluna de agendamento/desmarque
+  function compararHorario(a, b) {
+    const ha = a.horario || '', hb = b.horario || '';
+    if (ha === '' && hb === '') return 0;
+    if (ha === '') return 1;
+    if (hb === '') return -1;
+    return ha < hb ? -1 : ha > hb ? 1 : 0;
+  }
+
   if (ordenacao.campo) {
     const campo = ordenacao.campo;
     lista = lista.slice().sort((a,b) => {
       const va = (a[campo] || '').toString().toLowerCase();
       const vb = (b[campo] || '').toString().toLowerCase();
-      if (va === '' && vb === '') return 0;
-      if (va === '') return 1;
-      if (vb === '') return -1;
-      const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+      let cmp;
+      if (va === '' && vb === '') cmp = 0;
+      else if (va === '') cmp = 1;
+      else if (vb === '') cmp = -1;
+      else cmp = va < vb ? -1 : va > vb ? 1 : 0;
+      if (campo === 'dataAgendamento' && cmp === 0) return compararHorario(a, b);
       return ordenacao.asc ? cmp : -cmp;
     });
   } else {
     lista = lista.slice().sort((a,b) => {
       const da = a.dataAgendamento || a.dataContato || '';
       const db_ = b.dataAgendamento || b.dataContato || '';
-      return da < db_ ? -1 : da > db_ ? 1 : 0;
+      if (da !== db_) return da < db_ ? -1 : 1;
+      return compararHorario(a, b);
     });
   }
 
@@ -762,7 +793,7 @@ function renderTabela(mesKey) {
     return `
     <tr data-id="${e.id}" class="${ehHoje ? 'linha-hoje' : ''}">
       <td>${escapeHtml(e.nome||'')}${desmarques >= 2 ? `<span class="badge-alerta">já desmarcou ${desmarques}x</span>` : ''}${e.mesmoContatoOutroAnimal ? `<span class="badge-mesmo-contato">mesmo telefonema</span>` : ''}</td>
-      <td>${escapeHtml(e.telefone||'')}</td>
+      <td>${telefoneClicavel(e.telefone)}</td>
       <td>${escapeHtml(e.animal||'')}</td>
       <td>${escapeHtml(e.clinica||'')}</td>
       <td>${escapeHtml(e.cidade||'')}</td>
@@ -770,13 +801,21 @@ function renderTabela(mesKey) {
       <td>${formatarData(e.dataContato)}</td>
       <td><span class="pill ${pillClasse(e.status)}">${e.status||''}</span></td>
       <td style="text-align:center"><input type="checkbox" class="chk-agendado" data-id="${e.id}" ${jaAgendado ? 'checked' : ''} title="${jaAgendado ? 'Já agendado' : 'Marcar como agendado'}"></td>
-      <td>${formatarData(e.dataAgendamento)}${ehHoje ? '<span class="tag-hoje">Hoje</span>' : ''}</td>
+      <td>${formatarData(e.dataAgendamento)}${e.horario ? `<span class="hora-agend">${escapeHtml(e.horario)}</span>` : ''}${ehHoje ? '<span class="tag-hoje">Hoje</span>' : ''}</td>
       ${celObsClicavel(e.motivo, e.detalheMotivo, 'Motivo')}
       ${celObsClicavel(e.obs, '', 'Observação')}
-      <td class="acoes"><button class="btn outline sm btn-editar">Editar</button></td>
+      <td class="acoes"><button class="btn outline sm btn-editar">Editar</button><button class="btn outline sm btn-duplicar" title="Cadastrar outro animal do mesmo tutor">Duplicar</button></td>
     </tr>
   `;
   }).join('');
+
+  corpo.querySelectorAll('.btn-duplicar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('tr').dataset.id;
+      const entry = state.entries.find(e => e.id === id);
+      if (entry) duplicarContato(entry);
+    });
+  });
 
   corpo.querySelectorAll('.btn-editar').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -846,6 +885,22 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// Telefone clicável: abre o WhatsApp já na conversa com esse número, sem
+// precisar copiar/colar. Assume Brasil (DDI 55) quando o número não já tem DDI.
+function linkWhatsapp(telefone) {
+  const digitos = normalizarTelefone(telefone);
+  if (digitos.length < 10) return null; // sem DDD não dá pra confiar
+  const comDDI = digitos.length <= 11 ? '55' + digitos : digitos;
+  return `https://wa.me/${comDDI}`;
+}
+function telefoneClicavel(telefone) {
+  const texto = escapeHtml(telefone || '');
+  if (!telefone) return '—';
+  const link = linkWhatsapp(telefone);
+  if (!link) return texto;
+  return `<a href="${link}" target="_blank" rel="noopener" class="tel-link" title="Chamar no WhatsApp" onclick="event.stopPropagation()">${texto}</a>`;
+}
+
 // ============================================================
 // MODAL — NOVO / EDITAR CONTATO
 // ============================================================
@@ -862,6 +917,10 @@ function atualizarVisibilidadeMotivo() {
   document.getElementById('campo-motivo-select').hidden = !precisaMotivo;
   document.getElementById('label-detalhe-motivo').textContent = ehAguardando ? 'Observação (opcional)' : 'Detalhes do motivo';
   document.getElementById('f-data2-label').textContent = precisaMotivo ? 'Data do desmarque/contato' : (ehAguardando ? 'Contatar novamente em' : 'Data de agendamento');
+
+  // horário só faz sentido quando realmente existe um agendamento (marcado ou já realizado);
+  // só esconde o campo (não apaga o valor, caso ela troque o status e volte)
+  document.getElementById('campo-horario').hidden = !STATUS_AGENDADOS.includes(status);
 }
 
 document.getElementById('f-motivo').addEventListener('change', ev => {
@@ -904,6 +963,7 @@ function abrirModalEntry(entry) {
   document.getElementById('f-datacontato').value = entry ? entry.dataContato||'' : hojeStr();
   document.getElementById('f-status').value = entry ? entry.status||'Agendado' : 'Agendado';
   document.getElementById('f-data2').value = entry ? entry.dataAgendamento||'' : '';
+  document.getElementById('f-horario').value = entry ? entry.horario||'' : '';
   document.getElementById('f-motivo').value = entry ? entry.motivo||'' : (state.categorias.motivos[0]||'');
   document.getElementById('f-detalhe-motivo').value = entry ? entry.detalheMotivo||'' : '';
   document.getElementById('f-obs').value = entry ? entry.obs||'' : '';
@@ -915,6 +975,24 @@ function abrirModalEntry(entry) {
 function fecharModalEntry() {
   document.getElementById('modal-entry').hidden = true;
   document.getElementById('historico-contato').hidden = true;
+}
+
+// Abre o formulário como um NOVO contato, já com nome/telefone/clínica/cidade
+// preenchidos a partir de outro registro — pra quando o mesmo tutor liga e
+// agenda outro animal, sem precisar redigitar os dados dele. Já marca "mesmo
+// telefonema" (não conta como contato novo nas estatísticas) e deixa o campo
+// Animal em foco pra ela só completar o que muda.
+function duplicarContato(entry) {
+  abrirModalEntry(null);
+  document.getElementById('f-nome').value = entry.nome || '';
+  document.getElementById('f-telefone').value = entry.telefone || '';
+  document.getElementById('f-indicacao').value = entry.indicacao || '';
+  document.getElementById('f-clinica').value = entry.clinica || (state.categorias.clinicas[0]||'');
+  document.getElementById('f-cidade').value = entry.cidade || (state.categorias.cidades[0]||'');
+  document.getElementById('f-datacontato').value = entry.dataContato || hojeStr();
+  document.getElementById('f-mesmo-contato').checked = true;
+  atualizarPainelHistorico();
+  document.getElementById('f-animal').focus();
 }
 
 document.getElementById('form-entry').addEventListener('submit', ev => {
@@ -935,6 +1013,7 @@ document.getElementById('form-entry').addEventListener('submit', ev => {
     mesmoContatoOutroAnimal: document.getElementById('f-mesmo-contato').checked,
     status: status,
     dataAgendamento: document.getElementById('f-data2').value,
+    horario: STATUS_AGENDADOS.includes(status) ? document.getElementById('f-horario').value : '',
     motivo: precisaMotivo ? document.getElementById('f-motivo').value : '',
     detalheMotivo: mostrarDetalhe ? document.getElementById('f-detalhe-motivo').value.trim() : '',
     obs: document.getElementById('f-obs').value.trim(),

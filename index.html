@@ -32,12 +32,13 @@
     --sombra: 0 2px 12px rgba(27,67,50,.08);
     --raio: 14px;
   }
-  *{box-sizing:border-box;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--creme);color:var(--texto);}
   img{max-width:100%;}
   [hidden]{display:none!important;}
-  button{font-family:inherit;cursor:pointer;}
+  button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;outline-offset:2px;}
   input,select,textarea{font-family:inherit;}
+  a{-webkit-tap-highlight-color:transparent;}
 
   /* ---------- CARREGANDO (evita piscar a tela de login enquanto o Firebase confere se já tá logado) ---------- */
   #tela-carregando{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,var(--verde-pinho) 0%,var(--verde-pinho-escuro) 100%);}
@@ -78,6 +79,9 @@
   nav.abas{display:flex;gap:4px;padding:10px 20px 0;background:var(--branco);border-bottom:1px solid var(--borda);position:sticky;top:64px;z-index:19;overflow-x:auto;}
   nav.abas button{padding:12px 18px;border:none;background:none;font-size:14px;font-weight:600;color:var(--texto-claro);border-bottom:3px solid transparent;white-space:nowrap;}
   nav.abas button.ativa{color:var(--verde-pinho);border-color:var(--marrom);}
+  .badge-aba{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:4px;border-radius:999px;background:var(--vermelho);color:var(--branco);font-size:11px;font-weight:700;line-height:1;vertical-align:2px;}
+  .tel-link{color:var(--verde-pinho);font-weight:600;text-decoration:underline dotted;text-decoration-color:var(--marrom-claro);text-underline-offset:2px;}
+  .tel-link:hover{color:var(--verde-pinho-escuro);}
 
   main{max-width:1560px;margin:0 auto;padding:22px 20px 60px;}
 
@@ -169,6 +173,14 @@
   th.th-ordenavel.ordem-ativa .seta-ordem{opacity:1;}
   thead tr th:first-child{border-top-left-radius:var(--raio);}
   thead tr th:last-child{border-top-right-radius:var(--raio);}
+  /* listras bem sutis pra facilitar acompanhar a linha com o olho numa tabela
+     com tantas colunas — quase imperceptíveis, só ajudam a não "perder a linha" */
+  tr:nth-child(even) td{background:rgba(27,67,50,.025);}
+  /* separadores discretos entre grupos de colunas (quem é / onde-tipo / quando-status /
+     agendamento), pra tabela não virar uma parede única de informação */
+  #painel-tabela th:nth-child(3), #painel-tabela td:nth-child(3),
+  #painel-tabela th:nth-child(6), #painel-tabela td:nth-child(6),
+  #painel-tabela th:nth-child(10), #painel-tabela td:nth-child(10){border-right:1px solid var(--borda);}
   tr:hover td{background:var(--creme);}
   .tabela-wrap.compacta table{min-width:0;}
   .tabela-wrap.compacta th,.tabela-wrap.compacta td{white-space:normal;}
@@ -185,6 +197,7 @@
   tr.linha-hoje td{background:rgba(138,90,52,.08);}
   tr.linha-hoje td:first-child{box-shadow:inset 3px 0 0 var(--marrom);}
   .tag-hoje{display:inline-flex;align-items:center;line-height:1;margin-left:6px;padding:4px 8px;border-radius:20px;font-size:10px;font-weight:700;background:var(--marrom);color:var(--creme);vertical-align:middle;white-space:nowrap;}
+  .hora-agend{margin-left:5px;color:var(--texto-claro);font-size:11.5px;font-variant-numeric:tabular-nums;}
   /* sempre na mesma linha do nome (nunca embaixo) — pra nenhuma linha da tabela
      ficar mais alta que as outras por causa de um aviso */
   .badge-alerta{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;font-size:10.5px;font-weight:700;color:#a9660f;background:#fdf1e0;white-space:nowrap;vertical-align:middle;}
@@ -290,7 +303,7 @@
   </header>
 
   <nav class="abas">
-    <button class="ativa" data-aba="agendamentos">Agendamentos</button>
+    <button class="ativa" data-aba="agendamentos">Agendamentos <span class="badge-aba" id="badge-atrasados" hidden></span></button>
     <button data-aba="anual">Comparativo Anual</button>
   </nav>
 
@@ -418,6 +431,7 @@
         </div>
         <div class="campo"><label id="f-data2-label">Data de agendamento</label><input type="date" id="f-data2"></div>
       </div>
+      <div class="campo" id="campo-horario" hidden><label>Horário do agendamento (opcional)</label><input type="time" id="f-horario"></div>
       <div id="campo-motivo" hidden>
         <div class="campo" id="campo-motivo-select"><label>Motivo</label><select id="f-motivo"></select></div>
         <div class="campo"><label id="label-detalhe-motivo">Detalhes do motivo</label><textarea id="f-detalhe-motivo" placeholder="Explique melhor o que aconteceu (opcional)"></textarea></div>
