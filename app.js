@@ -769,10 +769,11 @@ function renderTabela(mesKey) {
       return ordenacao.asc ? cmp : -cmp;
     });
   } else {
+    // ordem padrão (nenhuma coluna clicada): o último contato registrado aparece
+    // primeiro, pra ela sempre ver na hora o que acabou de cadastrar
     lista = lista.slice().sort((a,b) => {
-      const da = a.dataAgendamento || a.dataContato || '';
-      const db_ = b.dataAgendamento || b.dataContato || '';
-      if (da !== db_) return da < db_ ? -1 : 1;
+      const ca = a.criadoEm || '', cb = b.criadoEm || '';
+      if (ca !== cb) return ca < cb ? 1 : -1;
       return compararHorario(a, b);
     });
   }
