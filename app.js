@@ -961,7 +961,9 @@ function abrirModalEntry(entry) {
   document.getElementById('f-cidade').value = entry ? entry.cidade||'' : (state.categorias.cidades[0]||'');
   document.getElementById('f-tipo').value = entry ? entry.tipo||'' : (state.categorias.tipos[0]||'');
   document.getElementById('f-datacontato').value = entry ? entry.dataContato||'' : hojeStr();
-  document.getElementById('f-status').value = entry ? entry.status||'Agendado' : 'Agendado';
+  // contato novo começa como "Aguardando" — só vira Agendado/Realizado/etc quando
+  // ela de fato decidir o que aconteceu com esse contato
+  document.getElementById('f-status').value = entry ? entry.status||'Agendado' : 'Aguardando';
   document.getElementById('f-data2').value = entry ? entry.dataAgendamento||'' : '';
   document.getElementById('f-horario').value = entry ? entry.horario||'' : '';
   document.getElementById('f-motivo').value = entry ? entry.motivo||'' : (state.categorias.motivos[0]||'');
@@ -1001,6 +1003,10 @@ document.getElementById('form-entry').addEventListener('submit', ev => {
   const precisaMotivo = STATUS_NAO_AGENDADOS.includes(status);
   const mostrarDetalhe = precisaMotivo || status === 'Aguardando';
   const btnSalvar = ev.target.querySelector('button[type=submit]');
+  // nenhum campo é obrigatório; quando a data do desmarque/não agendamento fica
+  // em branco, assume o dia de hoje (é quando ela está registrando isso)
+  const data2Digitada = document.getElementById('f-data2').value;
+  const dataAgendamentoFinal = (!data2Digitada && precisaMotivo) ? hojeStr() : data2Digitada;
   const dados = {
     nome: document.getElementById('f-nome').value.trim(),
     telefone: document.getElementById('f-telefone').value.trim(),
@@ -1009,10 +1015,10 @@ document.getElementById('form-entry').addEventListener('submit', ev => {
     clinica: document.getElementById('f-clinica').value,
     cidade: document.getElementById('f-cidade').value,
     tipo: document.getElementById('f-tipo').value,
-    dataContato: document.getElementById('f-datacontato').value,
+    dataContato: document.getElementById('f-datacontato').value || hojeStr(),
     mesmoContatoOutroAnimal: document.getElementById('f-mesmo-contato').checked,
     status: status,
-    dataAgendamento: document.getElementById('f-data2').value,
+    dataAgendamento: dataAgendamentoFinal,
     horario: STATUS_AGENDADOS.includes(status) ? document.getElementById('f-horario').value : '',
     motivo: precisaMotivo ? document.getElementById('f-motivo').value : '',
     detalheMotivo: mostrarDetalhe ? document.getElementById('f-detalhe-motivo').value.trim() : '',
