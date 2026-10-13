@@ -17,6 +17,12 @@ const entriesCol = docRef.collection('entries');
 // Isso evita que duas edições ao mesmo tempo (você e a Dra., por exemplo)
 // apaguem uma a outra — cada gravação mexe só no contato dela mesma.
 
+// Notas Fiscais: coleção TOTALMENTE separada da de agendamentos — mesmo app,
+// mesma conta Google, mas os dados não se misturam (um lançamento de NF não
+// vira contato de agendamento e vice-versa).
+const nfDocRef = db.collection('olhatta').doc('notas-fiscais');
+const nfEntriesCol = nfDocRef.collection('entries');
+
 // ---------- Categorias padrão (usadas na 1ª criação do documento) ----------
 const CATEGORIAS_PADRAO = {
   clinicas: ['Olhatta', 'Pet Center', 'Espaço Pet', 'Equibem', 'Domicílio', 'Volante'],
@@ -34,18 +40,28 @@ const MESES_ABREV = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT'
 let state = {
   entries: [],
   categorias: JSON.parse(JSON.stringify(CATEGORIAS_PADRAO)),
-  metas: {}
+  metas: {},
+  nf: { servicosSalvos: [] },
+  nfEntries: []
 };
 let carregouDoc = false;
 let carregouEntries = false;
+let carregouNfDoc = false;
+let carregouNfEntries = false;
 let currentDate = new Date();          // controla mês/ano da aba Agendamentos
+let nfCurrentDate = new Date();        // controla mês/ano da aba Notas Fiscais
 let anoAnual = new Date().getFullYear(); // controla ano da aba Comparativo Anual
 let editingEntryId = null;
+let editingNfId = null;
+let nfNomeSincronizado = true; // enquanto true, "Nome completo (NF)" copia o que for digitado em "Cliente"
 let abaAtiva = 'agendamentos';
 let filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '' };
+let nfFiltros = { busca: '', situacao: '' };
 let ordenacao = { campo: null, asc: true }; // null = ordem padrão (por data)
 let unsubDoc = null;
 let unsubEntries = null;
+let unsubNfDoc = null;
+let unsubNfEntries = null;
 let statusSincronizacao = 'ok'; // 'ok' | 'salvando' | 'erro'
 
 // ============================================================
@@ -84,13 +100,18 @@ auth.onAuthStateChanged(user => {
     document.getElementById('app').style.display = 'block';
     document.getElementById('user-email').textContent = user.email;
     iniciarEscuta();
+    iniciarEscutaNF();
   } else {
     document.getElementById('tela-login').classList.add('mostrar');
     document.getElementById('app').style.display = 'none';
     if (unsubDoc) { unsubDoc(); unsubDoc = null; }
     if (unsubEntries) { unsubEntries(); unsubEntries = null; }
+    if (unsubNfDoc) { unsubNfDoc(); unsubNfDoc = null; }
+    if (unsubNfEntries) { unsubNfEntries(); unsubNfEntries = null; }
     carregouDoc = false;
     carregouEntries = false;
+    carregouNfDoc = false;
+    carregouNfEntries = false;
   }
 });
 
@@ -129,6 +150,36 @@ function iniciarEscuta() {
   }
 }
 
+function iniciarEscutaNF() {
+  if (!unsubNfDoc) {
+    unsubNfDoc = nfDocRef.onSnapshot(snap => {
+      if (!snap.exists) {
+        nfDocRef.set({ servicosSalvos: [] });
+        return;
+      }
+      const d = snap.data();
+      state.nf.servicosSalvos = Array.isArray(d.servicosSalvos) ? d.servicosSalvos : [];
+      carregouNfDoc = true;
+      atualizarStatusSync(snap.metadata.hasPendingWrites);
+      renderTudo();
+    }, err => {
+      mostrarToast('Erro ao carregar serviços: ' + err.message);
+      atualizarStatusSync(false, true);
+    });
+  }
+  if (!unsubNfEntries) {
+    unsubNfEntries = nfEntriesCol.onSnapshot(snap => {
+      state.nfEntries = snap.docs.map(doc => doc.data());
+      carregouNfEntries = true;
+      atualizarStatusSync(snap.metadata.hasPendingWrites);
+      renderTudo();
+    }, err => {
+      mostrarToast('Erro ao carregar notas fiscais: ' + err.message);
+      atualizarStatusSync(false, true);
+    });
+  }
+}
+
 function atualizarStatusSync(pendente, erro) {
   const el = document.getElementById('sync-status');
   if (!el) return;
@@ -149,6 +200,26 @@ function atualizarContato(id, dados) {
 }
 function excluirContato(id) {
   return entriesCol.doc(id).delete();
+}
+
+// ---- Notas Fiscais: cada lançamento é o SEU PRÓPRIO documento na subcoleção "entries" ----
+function criarNf(dados) {
+  const ref = nfEntriesCol.doc();
+  dados.id = ref.id;
+  return ref.set(dados);
+}
+function atualizarNf(id, dados) {
+  dados.id = id;
+  return nfEntriesCol.doc(id).set(dados);
+}
+function excluirNf(id) {
+  return nfEntriesCol.doc(id).delete();
+}
+function adicionarServico(valor) {
+  return nfDocRef.update({ servicosSalvos: firebase.firestore.FieldValue.arrayUnion(valor) });
+}
+function removerServico(valor) {
+  return nfDocRef.update({ servicosSalvos: firebase.firestore.FieldValue.arrayRemove(valor) });
 }
 
 // ---- Categorias: arrayUnion/arrayRemove são operações atômicas no Firestore —
@@ -295,6 +366,10 @@ function renderTudo() {
   atualizarBadgeAtrasados();
   if (!document.getElementById('modal-entry').hidden) atualizarPainelHistorico();
   if (!document.getElementById('modal-categorias').hidden) renderCategoriasPainel();
+  if (carregouNfDoc && carregouNfEntries) {
+    if (abaAtiva === 'notas') renderNotas();
+    if (!document.getElementById('modal-servicos').hidden) renderServicosLista();
+  }
 }
 
 // Contador vermelho na aba "Agendamentos": quantos "Aguardando" já passaram do
@@ -315,9 +390,11 @@ function atualizarBadgeAtrasados() {
 
 function renderAba() {
   document.getElementById('aba-agendamentos').hidden = abaAtiva !== 'agendamentos';
+  document.getElementById('aba-notas').hidden = abaAtiva !== 'notas';
   document.getElementById('aba-anual').hidden = abaAtiva !== 'anual';
   document.querySelectorAll('nav.abas button').forEach(b => b.classList.toggle('ativa', b.dataset.aba === abaAtiva));
   if (abaAtiva === 'agendamentos') renderAgendamentos();
+  else if (abaAtiva === 'notas') { if (carregouNfDoc && carregouNfEntries) renderNotas(); }
   else renderAnual();
 }
 
@@ -352,6 +429,7 @@ function popularSelects() {
   preencher('f-cidade', cat.cidades, null);
   preencher('f-tipo', cat.tipos, null);
   preencher('f-motivo', cat.motivos, null);
+  preencher('nf-f-cidade', cat.cidades, null);
   const optNovoMotivo = document.createElement('option');
   optNovoMotivo.value = '__novo__';
   optNovoMotivo.textContent = '+ Adicionar novo motivo...';
@@ -489,7 +567,31 @@ function renderAgendamentos() {
   renderPendentes(mesKey);
   renderSemanas(stats, mesKey);
   renderMetas(mesKey, stats);
+  renderChipsStatus(mesKey);
   renderTabela(mesKey);
+}
+
+// Atalho de filtro por status: um clique já filtra a tabela (em vez de abrir
+// o <select>), mostrando quantos contatos do mês tem em cada status. Por baixo
+// dos panos continua usando o mesmo <select id="filtro-status"> de sempre (só
+// fica escondido visualmente), pra não duplicar a lógica de filtro.
+function renderChipsStatus(mesKey) {
+  const cont = document.getElementById('chips-status');
+  if (!cont) return;
+  const lista = entriesDoMes(mesKey);
+  const contagem = {};
+  lista.forEach(e => { contagem[e.status] = (contagem[e.status]||0) + 1; });
+  const ordem = ['Aguardando','Agendado','Realizado','Desmarcou','Não Agendou'];
+  const chipTodos = `<button type="button" class="chip-status ${filtros.status === '' ? 'selecionado' : ''}" data-status="">Todos <b>${lista.length}</b></button>`;
+  const chipsStatus = ordem.map(s => `<button type="button" class="chip-status ${pillClasse(s)} ${filtros.status === s ? 'selecionado' : ''}" data-status="${escapeHtml(s)}">${escapeHtml(s)} <b>${contagem[s]||0}</b></button>`).join('');
+  cont.innerHTML = chipTodos + chipsStatus;
+  cont.querySelectorAll('.chip-status').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const sel = document.getElementById('filtro-status');
+      sel.value = chip.dataset.status;
+      sel.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  });
 }
 
 // Contatos com status "Aguardando" (a recontatar depois) — mostra só quem tem
@@ -679,6 +781,11 @@ function onMetaInputChange(ev) {
 }
 
 // ---------- Filtros ----------
+function atualizarBotaoLimparFiltros() {
+  const algumAtivo = !!(filtros.busca || filtros.status || filtros.tipo || filtros.cidade || filtros.clinica || filtros.motivo);
+  document.getElementById('btn-limpar-filtros').hidden = !algumAtivo;
+}
+
 ['filtro-busca','filtro-status','filtro-tipo','filtro-cidade','filtro-clinica','filtro-motivo'].forEach(id => {
   document.getElementById(id).addEventListener('input', () => {
     filtros.busca = document.getElementById('filtro-busca').value.trim().toLowerCase();
@@ -688,8 +795,46 @@ function onMetaInputChange(ev) {
     filtros.clinica = document.getElementById('filtro-clinica').value;
     filtros.motivo = document.getElementById('filtro-motivo').value;
     renderTabela(mesKeyDe(currentDate));
+    renderChipsStatus(mesKeyDe(currentDate));
+    atualizarBotaoLimparFiltros();
   });
 });
+
+document.getElementById('btn-limpar-filtros').addEventListener('click', () => {
+  document.getElementById('filtro-busca').value = '';
+  document.getElementById('filtro-status').value = '';
+  document.getElementById('filtro-tipo').value = '';
+  document.getElementById('filtro-cidade').value = '';
+  document.getElementById('filtro-clinica').value = '';
+  document.getElementById('filtro-motivo').value = '';
+  filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '' };
+  renderTabela(mesKeyDe(currentDate));
+  renderChipsStatus(mesKeyDe(currentDate));
+  atualizarBotaoLimparFiltros();
+});
+
+// ---------- Painéis recolhíveis (Metas do mês / Contatos por semana) ----------
+// Lembra a preferência no aparelho dela (localStorage) — se recolher uma vez,
+// continua recolhido da próxima vez que abrir o app nesse mesmo aparelho.
+function configurarPainelRecolhivel(idBotao, idConteudo, chave) {
+  const btn = document.getElementById(idBotao);
+  const conteudo = document.getElementById(idConteudo);
+  if (!btn || !conteudo) return;
+  let colapsado = false;
+  try { colapsado = localStorage.getItem(chave) === '1'; } catch (e) { /* sem acesso ao localStorage — segue sempre expandido */ }
+  function aplicar() {
+    conteudo.hidden = colapsado;
+    btn.textContent = colapsado ? 'Expandir ▸' : 'Recolher ▾';
+  }
+  aplicar();
+  btn.addEventListener('click', () => {
+    colapsado = !colapsado;
+    try { localStorage.setItem(chave, colapsado ? '1' : '0'); } catch (e) { /* segue sem lembrar a preferência */ }
+    aplicar();
+  });
+}
+configurarPainelRecolhivel('toggle-metas', 'metas-grid', 'agendaOlhatta_colapsar_metas');
+configurarPainelRecolhivel('toggle-semanas', 'semanas-wrap', 'agendaOlhatta_colapsar_semanas');
 
 document.querySelectorAll('#painel-tabela th.th-ordenavel').forEach(th => {
   th.addEventListener('click', () => {
@@ -1177,6 +1322,399 @@ function renderAnual() {
   `).join('');
   document.getElementById('tabela-anual-corpo').innerHTML = linhasHtml;
 }
+
+// ============================================================
+// ABA NOTAS FISCAIS
+// ============================================================
+document.getElementById('nf-mes-anterior').addEventListener('click', () => { nfCurrentDate.setMonth(nfCurrentDate.getMonth()-1); renderNotas(); });
+document.getElementById('nf-mes-proximo').addEventListener('click', () => { nfCurrentDate.setMonth(nfCurrentDate.getMonth()+1); renderNotas(); });
+document.getElementById('nf-mes-hoje').addEventListener('click', () => { nfCurrentDate = new Date(); renderNotas(); });
+
+function entriesNfDoMes(mesKey) {
+  return state.nfEntries.filter(e => mesDe(e.dataPagamento) === mesKey);
+}
+
+function formatarMoeda(v) {
+  const n = Number(v) || 0;
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function renderNotas() {
+  document.getElementById('nf-mes-rotulo').textContent = rotuloMes(nfCurrentDate);
+  const mesKey = mesKeyDe(nfCurrentDate);
+  renderNfCards(mesKey);
+  renderTabelaNf(mesKey);
+}
+
+function renderNfCards(mesKey) {
+  const cont = document.getElementById('nf-cards-resumo');
+  const lista = entriesNfDoMes(mesKey);
+  const totalCobrado = lista.reduce((s,e) => s + (Number(e.cobrado)||0), 0);
+  const totalNaNota = lista.reduce((s,e) => s + (Number(e.valorNota)||0), 0);
+  const pendentes = lista.filter(e => e.querNf && !e.feito).length;
+  const feitos = lista.filter(e => e.querNf && e.feito).length;
+  cont.innerHTML = `
+    <div class="card">
+      <h3>Lançamentos no mês</h3>
+      <div class="num">${lista.length}</div>
+      <div class="sub">R$ ${formatarMoeda(totalCobrado)} cobrado(s)</div>
+    </div>
+    <div class="card">
+      <h3>Valor na nota</h3>
+      <div class="num">R$ ${formatarMoeda(totalNaNota)}</div>
+      <div class="sub">cobrado menos splits</div>
+    </div>
+    <div class="card">
+      <h3>Notas pendentes</h3>
+      <div class="num">${pendentes}</div>
+      <div class="sub">ainda não emitidas</div>
+    </div>
+    <div class="card">
+      <h3>Notas feitas</h3>
+      <div class="num">${feitos}</div>
+      <div class="sub">já emitidas neste mês</div>
+    </div>
+  `;
+}
+
+// ---------- Filtros da tabela de NF ----------
+['nf-filtro-busca','nf-filtro-situacao'].forEach(id => {
+  ['input','change'].forEach(evento => {
+    document.getElementById(id).addEventListener(evento, () => {
+      nfFiltros.busca = document.getElementById('nf-filtro-busca').value.trim().toLowerCase();
+      nfFiltros.situacao = document.getElementById('nf-filtro-situacao').value;
+      renderTabelaNf(mesKeyDe(nfCurrentDate));
+    });
+  });
+});
+
+function renderTabelaNf(mesKey) {
+  let lista = entriesNfDoMes(mesKey);
+  if (nfFiltros.situacao === 'pendente') lista = lista.filter(e => e.querNf && !e.feito);
+  else if (nfFiltros.situacao === 'feito') lista = lista.filter(e => e.feito);
+  if (nfFiltros.busca) {
+    const q = nfFiltros.busca;
+    const qDigitos = q.replace(/\D/g, '');
+    lista = lista.filter(e =>
+      (e.cliente||'').toLowerCase().includes(q) ||
+      (e.animal||'').toLowerCase().includes(q) ||
+      (e.telefone||'').toLowerCase().includes(q) ||
+      (e.nomeNf||'').toLowerCase().includes(q) ||
+      (e.cpf||'').toLowerCase().includes(q) ||
+      (qDigitos.length >= 3 && normalizarTelefone(e.telefone).includes(qDigitos))
+    );
+  }
+  lista = lista.slice().sort((a,b) => {
+    const da = a.dataPagamento || '', db_ = b.dataPagamento || '';
+    if (da !== db_) return da < db_ ? 1 : -1;
+    return (b.criadoEm||'').localeCompare(a.criadoEm||'');
+  });
+
+  const corpo = document.getElementById('nf-tabela-corpo');
+  document.getElementById('nf-tabela-vazia').hidden = lista.length !== 0;
+  corpo.innerHTML = lista.map(e => {
+    const servicosTxt = (e.servicos||[]).join(', ');
+    return `
+    <tr data-id="${e.id}">
+      <td>${escapeHtml(e.cliente||'')}</td>
+      <td>${escapeHtml(e.animal||'')}</td>
+      <td>${telefoneClicavel(e.telefone)}</td>
+      <td>${escapeHtml(e.cidade||'')}</td>
+      <td>${escapeHtml(servicosTxt || '—')}</td>
+      <td>${formatarData(e.dataPagamento)}</td>
+      <td>${escapeHtml(e.pagamento||'')}</td>
+      <td>R$ ${formatarMoeda(e.cobrado)}</td>
+      <td>R$ ${formatarMoeda(e.valorNota)}</td>
+      <td>${e.querNf ? '' : '<span class="tag-sem-nf">Não quer</span>'}</td>
+      <td>${e.querNf ? `<span class="pill ${e.feito ? 'feito' : 'pendente'}">${e.feito ? 'Feito' : 'Pendente'}</span>` : '—'}</td>
+      <td class="acoes"><button class="btn outline sm btn-editar-nf">Editar</button></td>
+    </tr>
+  `;
+  }).join('');
+
+  corpo.querySelectorAll('.btn-editar-nf').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('tr').dataset.id;
+      abrirModalNf(state.nfEntries.find(e => e.id === id));
+    });
+  });
+}
+
+// ---------- Modal: novo/editar lançamento de NF ----------
+let nfServicosSelecionados = [];
+
+document.getElementById('nf-btn-novo').addEventListener('click', () => abrirModalNf(null));
+document.getElementById('fechar-modal-nf').addEventListener('click', fecharModalNf);
+document.getElementById('btn-cancelar-nf').addEventListener('click', fecharModalNf);
+
+function abrirModalNf(entry) {
+  popularSelects();
+  editingNfId = entry ? entry.id : null;
+  document.getElementById('nf-titulo').textContent = entry ? 'Editar lançamento' : 'Novo lançamento';
+  document.getElementById('btn-excluir-nf').hidden = !entry;
+
+  document.getElementById('nf-f-telefone').value = entry ? entry.telefone||'' : '';
+  document.getElementById('nf-f-animal').value = entry ? entry.animal||'' : '';
+  document.getElementById('nf-f-cliente').value = entry ? entry.cliente||'' : '';
+  document.getElementById('nf-f-cidade').value = entry ? entry.cidade||'' : (state.categorias.cidades[0]||'');
+  document.getElementById('nf-f-datapagamento').value = entry ? entry.dataPagamento||'' : hojeStr();
+  document.getElementById('nf-f-cobrado').value = entry && entry.cobrado ? entry.cobrado : '';
+  document.getElementById('nf-f-splits').value = entry && entry.splits ? entry.splits : '';
+  document.getElementById('nf-f-pagamento').value = entry ? entry.pagamento||'PIX' : 'PIX';
+  document.getElementById('nf-f-quer-nf').checked = entry ? !!entry.querNf : true;
+  document.getElementById('nf-f-nome').value = entry ? entry.nomeNf||'' : '';
+  document.getElementById('nf-f-cpf').value = entry ? entry.cpf||'' : '';
+  document.getElementById('nf-f-cep').value = entry ? entry.cep||'' : '';
+  document.getElementById('nf-f-numero').value = entry ? entry.numero||'' : '';
+  document.getElementById('nf-f-rua').value = entry ? entry.rua||'' : '';
+  document.getElementById('nf-f-bairro').value = entry ? entry.bairro||'' : '';
+  document.getElementById('nf-f-email').value = entry ? entry.email||'' : '';
+  document.getElementById('nf-f-obs').value = entry ? entry.obs||'' : '';
+  document.getElementById('nf-f-feito').checked = entry ? !!entry.feito : false;
+
+  nfServicosSelecionados = entry && Array.isArray(entry.servicos) ? entry.servicos.slice() : [];
+  // em edição, o nome já foi definido/conferido antes — não sobrescreve mais
+  // o que ela digitar em "Cliente"; num lançamento novo, continua copiando
+  nfNomeSincronizado = !entry;
+  nfChipsRender();
+  nfAtualizarValorNota();
+  nfAtualizarVisibilidadeDadosNf();
+
+  document.getElementById('modal-nf').hidden = false;
+}
+function fecharModalNf() {
+  document.getElementById('modal-nf').hidden = true;
+}
+
+function nfChipsRender() {
+  const cont = document.getElementById('nf-chips-servico');
+  const salvos = state.nf.servicosSalvos || [];
+  cont.innerHTML = salvos.length
+    ? salvos.map(s => `<button type="button" class="chip-servico ${nfServicosSelecionados.includes(s) ? 'selecionado' : ''}" data-servico="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')
+    : '<span class="sub">Nenhum serviço salvo ainda — adicione um abaixo</span>';
+  cont.querySelectorAll('.chip-servico').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const s = chip.dataset.servico;
+      const i = nfServicosSelecionados.indexOf(s);
+      if (i === -1) nfServicosSelecionados.push(s); else nfServicosSelecionados.splice(i,1);
+      nfChipsRender();
+    });
+  });
+}
+
+document.getElementById('nf-btn-add-servico').addEventListener('click', () => {
+  const input = document.getElementById('nf-novo-servico');
+  const valor = input.value.trim();
+  if (!valor) return;
+  if ((state.nf.servicosSalvos||[]).includes(valor)) {
+    if (!nfServicosSelecionados.includes(valor)) nfServicosSelecionados.push(valor);
+    input.value = '';
+    nfChipsRender();
+    return;
+  }
+  input.disabled = true;
+  adicionarServico(valor).then(() => {
+    if (!state.nf.servicosSalvos.includes(valor)) state.nf.servicosSalvos.push(valor);
+    if (!nfServicosSelecionados.includes(valor)) nfServicosSelecionados.push(valor);
+    input.value = '';
+    nfChipsRender();
+  }).catch(err => mostrarToast('Não foi possível adicionar o serviço: ' + err.message))
+    .finally(() => { input.disabled = false; });
+});
+
+function nfAtualizarValorNota() {
+  const cobrado = Number(document.getElementById('nf-f-cobrado').value) || 0;
+  const splits = Number(document.getElementById('nf-f-splits').value) || 0;
+  const valor = Math.max(0, cobrado - splits);
+  document.getElementById('nf-f-valornota').value = formatarMoeda(valor);
+}
+document.getElementById('nf-f-cobrado').addEventListener('input', nfAtualizarValorNota);
+document.getElementById('nf-f-splits').addEventListener('input', nfAtualizarValorNota);
+
+// "Dados da nota" e o checkbox "Feito" só fazem sentido quando ela quer nota —
+// e "Feito" só aparece quando o lançamento já existe (não faz sentido perguntar
+// isso ao criar um lançamento novo, ainda nem foi emitida)
+function nfAtualizarVisibilidadeDadosNf() {
+  const quer = document.getElementById('nf-f-quer-nf').checked;
+  document.getElementById('nf-dados-nf-bloco').hidden = !quer;
+  document.getElementById('nf-campo-feito').hidden = !editingNfId || !quer;
+}
+document.getElementById('nf-f-quer-nf').addEventListener('change', nfAtualizarVisibilidadeDadosNf);
+
+// Enquanto ela não mexer manualmente no "Nome completo (NF)", ele acompanha o
+// que for digitado em "Cliente" — pra não ter que escrever o nome duas vezes
+document.getElementById('nf-f-cliente').addEventListener('input', () => {
+  if (nfNomeSincronizado) document.getElementById('nf-f-nome').value = document.getElementById('nf-f-cliente').value;
+});
+document.getElementById('nf-f-nome').addEventListener('input', () => { nfNomeSincronizado = false; });
+
+// ---- Máscaras simples de CPF/CEP (só formata, não valida dígito verificador) ----
+function maskCpf(v) {
+  v = v.replace(/\D/g, '').slice(0, 11);
+  v = v.replace(/(\d{3})(\d)/, '$1.$2');
+  v = v.replace(/(\d{3})(\d)/, '$1.$2');
+  v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  return v;
+}
+document.getElementById('nf-f-cpf').addEventListener('input', ev => { ev.target.value = maskCpf(ev.target.value); });
+
+function maskCep(v) {
+  v = v.replace(/\D/g, '').slice(0, 8);
+  v = v.replace(/(\d{5})(\d)/, '$1-$2');
+  return v;
+}
+document.getElementById('nf-f-cep').addEventListener('input', ev => { ev.target.value = maskCep(ev.target.value); });
+
+// Busca o endereço automaticamente pelo CEP (ViaCEP) — se não tiver internet ou
+// o CEP for inválido, simplesmente não preenche nada; ela completa na mão
+document.getElementById('nf-f-cep').addEventListener('blur', () => {
+  const cep = document.getElementById('nf-f-cep').value.replace(/\D/g, '');
+  if (cep.length !== 8) return;
+  fetch(`https://viacep.com.br/ws/${cep}/json/`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.erro) { mostrarToast('CEP não encontrado'); return; }
+      if (d.logradouro && !document.getElementById('nf-f-rua').value.trim()) document.getElementById('nf-f-rua').value = d.logradouro;
+      if (d.bairro && !document.getElementById('nf-f-bairro').value.trim()) document.getElementById('nf-f-bairro').value = d.bairro;
+      if (d.localidade && state.categorias.cidades.includes(d.localidade)) document.getElementById('nf-f-cidade').value = d.localidade;
+    })
+    .catch(() => { /* sem internet — segue sem preencher automaticamente */ });
+});
+
+// Puxa os dados de um lançamento anterior da mesma pessoa, pelo telefone ou
+// CPF, pra ela não precisar redigitar os dados de quem já lançou nota antes
+function buscarNfPorContato(telefone, cpf) {
+  const telNorm = normalizarTelefone(telefone);
+  const cpfNorm = (cpf || '').replace(/\D/g, '');
+  const candidatos = state.nfEntries.filter(e => {
+    if (editingNfId && e.id === editingNfId) return false;
+    const eTel = normalizarTelefone(e.telefone);
+    const eCpf = (e.cpf || '').replace(/\D/g, '');
+    return (telNorm.length >= 8 && eTel === telNorm) || (cpfNorm.length === 11 && eCpf === cpfNorm);
+  });
+  if (!candidatos.length) return null;
+  return candidatos.slice().sort((a,b) => (b.criadoEm||'').localeCompare(a.criadoEm||''))[0];
+}
+
+function autopreencherNf() {
+  if (editingNfId) return; // só ajuda em lançamento novo, não mexe em edição
+  const telefone = document.getElementById('nf-f-telefone').value;
+  const cpf = document.getElementById('nf-f-cpf').value;
+  const achado = buscarNfPorContato(telefone, cpf);
+  if (!achado) return;
+  if (!document.getElementById('nf-f-cliente').value.trim()) document.getElementById('nf-f-cliente').value = achado.cliente || '';
+  if (!document.getElementById('nf-f-cidade').value) document.getElementById('nf-f-cidade').value = achado.cidade || '';
+  if (!document.getElementById('nf-f-nome').value.trim()) { document.getElementById('nf-f-nome').value = achado.nomeNf || ''; nfNomeSincronizado = false; }
+  if (!document.getElementById('nf-f-cpf').value.trim()) document.getElementById('nf-f-cpf').value = achado.cpf || '';
+  if (!document.getElementById('nf-f-cep').value.trim()) document.getElementById('nf-f-cep').value = achado.cep || '';
+  if (!document.getElementById('nf-f-numero').value.trim()) document.getElementById('nf-f-numero').value = achado.numero || '';
+  if (!document.getElementById('nf-f-rua').value.trim()) document.getElementById('nf-f-rua').value = achado.rua || '';
+  if (!document.getElementById('nf-f-bairro').value.trim()) document.getElementById('nf-f-bairro').value = achado.bairro || '';
+  if (!document.getElementById('nf-f-email').value.trim()) document.getElementById('nf-f-email').value = achado.email || '';
+  mostrarToast('Dados preenchidos a partir de um lançamento anterior');
+}
+document.getElementById('nf-f-telefone').addEventListener('blur', autopreencherNf);
+document.getElementById('nf-f-cpf').addEventListener('blur', autopreencherNf);
+
+// Botões "copiar" ao lado dos campos de dados da nota fiscal
+document.querySelectorAll('.btn-copiar').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const el = document.getElementById(btn.dataset.campo);
+    if (!el) return;
+    const texto = el.value || '';
+    if (!texto) { mostrarToast('Nada para copiar'); return; }
+    navigator.clipboard.writeText(texto).then(() => mostrarToast('Copiado')).catch(() => mostrarToast('Não foi possível copiar'));
+  });
+});
+
+document.getElementById('form-nf').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const btnSalvar = ev.target.querySelector('button[type=submit]');
+  const cobrado = Number(document.getElementById('nf-f-cobrado').value) || 0;
+  const splits = Number(document.getElementById('nf-f-splits').value) || 0;
+  const valorNota = Math.max(0, cobrado - splits);
+  const querNf = document.getElementById('nf-f-quer-nf').checked;
+  const anterior = editingNfId ? state.nfEntries.find(e => e.id === editingNfId) : null;
+  const feito = querNf && document.getElementById('nf-f-feito').checked;
+  // registra a data em que a nota foi marcada como feita; se desmarcar, limpa
+  const dataNF = feito ? ((anterior && anterior.feito && anterior.dataNF) || hojeStr()) : '';
+
+  const dados = {
+    telefone: document.getElementById('nf-f-telefone').value.trim(),
+    animal: document.getElementById('nf-f-animal').value.trim(),
+    cliente: document.getElementById('nf-f-cliente').value.trim(),
+    cidade: document.getElementById('nf-f-cidade').value,
+    dataPagamento: document.getElementById('nf-f-datapagamento').value || hojeStr(),
+    servicos: nfServicosSelecionados.slice(),
+    cobrado, splits, valorNota,
+    pagamento: document.getElementById('nf-f-pagamento').value,
+    querNf,
+    nomeNf: querNf ? document.getElementById('nf-f-nome').value.trim() : '',
+    cpf: querNf ? document.getElementById('nf-f-cpf').value.trim() : '',
+    cep: querNf ? document.getElementById('nf-f-cep').value.trim() : '',
+    numero: querNf ? document.getElementById('nf-f-numero').value.trim() : '',
+    rua: querNf ? document.getElementById('nf-f-rua').value.trim() : '',
+    bairro: querNf ? document.getElementById('nf-f-bairro').value.trim() : '',
+    email: querNf ? document.getElementById('nf-f-email').value.trim() : '',
+    obs: document.getElementById('nf-f-obs').value.trim(),
+    feito,
+    dataNF,
+    criadoEm: (anterior && anterior.criadoEm) || new Date().toISOString()
+  };
+
+  btnSalvar.disabled = true;
+  btnSalvar.textContent = 'Salvando...';
+  const promessa = editingNfId ? atualizarNf(editingNfId, dados) : criarNf(dados);
+  promessa.then(() => {
+    mostrarToast('Lançamento salvo');
+    fecharModalNf();
+  }).catch(err => {
+    mostrarToast('Não foi possível salvar: ' + err.message);
+  }).finally(() => {
+    btnSalvar.disabled = false;
+    btnSalvar.textContent = 'Salvar';
+  });
+});
+
+document.getElementById('btn-excluir-nf').addEventListener('click', () => {
+  if (!editingNfId) return;
+  if (!confirm('Excluir este lançamento? Essa ação não pode ser desfeita.')) return;
+  excluirNf(editingNfId).then(() => {
+    mostrarToast('Lançamento excluído');
+    fecharModalNf();
+  }).catch(err => mostrarToast('Não foi possível excluir: ' + err.message));
+});
+
+// ---------- Modal: gerenciar serviços salvos ----------
+document.getElementById('nf-btn-servicos').addEventListener('click', () => {
+  renderServicosLista();
+  document.getElementById('modal-servicos').hidden = false;
+});
+document.getElementById('fechar-modal-servicos').addEventListener('click', () => {
+  document.getElementById('modal-servicos').hidden = true;
+});
+
+function renderServicosLista() {
+  const cont = document.getElementById('servicos-lista');
+  const lista = state.nf.servicosSalvos || [];
+  cont.innerHTML = lista.length
+    ? lista.map(v => `<span class="chip">${escapeHtml(v)}<button data-valor="${escapeHtml(v)}" class="btn-remover-servico">&times;</button></span>`).join('')
+    : '<span class="sub">Nenhum serviço salvo ainda</span>';
+  cont.querySelectorAll('.btn-remover-servico').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const valor = btn.dataset.valor;
+      removerServico(valor).then(() => mostrarToast('Serviço removido')).catch(err => mostrarToast('Erro ao remover: ' + err.message));
+    });
+  });
+}
+document.getElementById('servicos-novo-btn').addEventListener('click', () => {
+  const input = document.getElementById('servicos-novo-input');
+  const valor = input.value.trim();
+  if (!valor) return;
+  if ((state.nf.servicosSalvos||[]).includes(valor)) { mostrarToast('Já existe'); return; }
+  input.value = '';
+  adicionarServico(valor).then(() => mostrarToast('Serviço adicionado')).catch(err => mostrarToast('Erro ao adicionar: ' + err.message));
+});
 
 // ============================================================
 // PWA — atualizar / service worker

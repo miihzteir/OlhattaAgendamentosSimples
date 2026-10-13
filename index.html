@@ -4,32 +4,32 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Agenda Olhatta</title>
-<meta name="theme-color" content="#1b4332">
+<meta name="theme-color" content="#766AA3">
 <link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=2">
-<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png?v=2">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png?v=2">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=3">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png?v=3">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png?v=3">
 <style>
   :root{
-    --verde-pinho:#1b4332;
-    --verde-pinho-escuro:#0f2b20;
-    --verde-pinho-claro:#2d6a4f;
-    --marrom:#8a5a34;
-    --marrom-claro:#c9a173;
-    --marrom-escuro:#6b4527;
-    --creme:#faf6ec;
-    --creme-escuro:#f1e9d8;
-    --branco:#fffdf8;
-    --texto:#2b2b26;
-    --texto-claro:#786f5c;
-    --vermelho:#b3413e;
-    --vermelho-claro:#f6e6e5;
-    --verde-ok:#3f7d54;
-    --verde-ok-claro:#e6efe8;
-    --azul:#3d6b91;
-    --azul-claro:#e6eef4;
-    --borda:#e3dcc8;
-    --sombra: 0 2px 12px rgba(27,67,50,.08);
+    --verde-pinho:#766AA3;
+    --verde-pinho-escuro:#564A82;
+    --verde-pinho-claro:#A79CC9;
+    --marrom:#E0A47C;
+    --marrom-claro:#F3C9A8;
+    --marrom-escuro:#A85F26;
+    --creme:#FAF6FD;
+    --creme-escuro:#F1E9F8;
+    --branco:#FFFDFB;
+    --texto:#3A3240;
+    --texto-claro:#756884;
+    --vermelho:#C06A6A;
+    --vermelho-claro:#FBEAEA;
+    --verde-ok:#6B9A7E;
+    --verde-ok-claro:#E6F1EA;
+    --azul:#7B93B8;
+    --azul-claro:#EAEFF6;
+    --borda:#E9DFF4;
+    --sombra: 0 2px 12px rgba(118,106,163,.10);
     --raio: 14px;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -42,7 +42,7 @@
 
   /* ---------- CARREGANDO (evita piscar a tela de login enquanto o Firebase confere se já tá logado) ---------- */
   #tela-carregando{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,var(--verde-pinho) 0%,var(--verde-pinho-escuro) 100%);}
-  #tela-carregando .aro{width:40px;height:40px;border-radius:50%;border:3px solid rgba(250,246,236,.3);border-top-color:var(--creme);animation:girar .8s linear infinite;}
+  #tela-carregando .aro{width:40px;height:40px;border-radius:50%;border:3px solid rgba(255,255,255,.3);border-top-color:var(--creme);animation:girar .8s linear infinite;}
   @keyframes girar{to{transform:rotate(360deg);}}
 
   /* ---------- LOGIN ---------- */
@@ -63,14 +63,14 @@
   .topo-marca{display:flex;align-items:center;gap:10px;}
   .topo-marca img{width:36px;height:36px;border-radius:9px;}
   .topo-marca strong{font-size:17px;letter-spacing:.2px;}
-  .topo-marca span{display:block;font-size:11px;color:rgba(250,246,236,.72);font-weight:500;}
+  .topo-marca span{display:block;font-size:11px;color:rgba(255,255,255,.75);font-weight:500;}
   .topo-acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .topo-acoes .email{font-size:12px;color:var(--marrom-claro);margin-right:6px;}
   .sync-status{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;}
   .sync-status::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;}
-  .sync-status.ok{color:#a9e2bf;background:rgba(63,125,84,.25);}
-  .sync-status.pendente{color:var(--marrom-claro);background:rgba(138,90,52,.28);}
-  .sync-status.erro{color:#f3b3af;background:rgba(179,65,62,.3);}
+  .sync-status.ok{color:#CFE3D6;background:rgba(107,154,126,.3);}
+  .sync-status.pendente{color:var(--marrom-claro);background:rgba(224,164,124,.32);}
+  .sync-status.erro{color:#F0CACA;background:rgba(192,106,106,.32);}
   .icon-btn{width:36px;height:36px;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:var(--creme);display:flex;align-items:center;justify-content:center;font-size:16px;transition:.15s;}
   .icon-btn:hover{background:rgba(255,255,255,.2);}
   .btn-sair{padding:8px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:transparent;color:var(--creme);font-size:13px;font-weight:600;}
@@ -86,11 +86,35 @@
   main{max-width:1560px;margin:0 auto;padding:22px 20px 60px;}
 
   /* ---------- NAVEGADOR DE MES ---------- */
-  .nav-mes{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:20px;}
+  .topo-aba{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:20px;position:relative;}
+  .nav-mes{display:flex;align-items:center;justify-content:center;gap:16px;}
   .nav-mes button{width:36px;height:36px;border-radius:50%;border:1px solid var(--borda);background:var(--branco);color:var(--verde-pinho);font-size:16px;}
   .nav-mes button:hover{background:var(--creme-escuro);}
   .nav-mes .rotulo{font-size:19px;font-weight:700;color:var(--verde-pinho);min-width:180px;text-align:center;text-transform:capitalize;}
-  .nav-mes .hoje{width:auto;height:auto;font-size:12px;padding:6px 14px;border-radius:20px;border:1px solid var(--marrom);color:var(--marrom);background:var(--branco);font-weight:600;white-space:nowrap;}
+  .nav-mes .hoje{width:auto;height:auto;font-size:12px;padding:6px 14px;border-radius:20px;border:1px solid var(--marrom);color:var(--marrom-escuro);background:var(--branco);font-weight:600;white-space:nowrap;}
+  .btn-novo-destaque{position:absolute;right:0;top:50%;transform:translateY(-50%);white-space:nowrap;}
+  @media (max-width:760px){
+    .topo-aba{flex-direction:column;align-items:stretch;}
+    .btn-novo-destaque{position:static;transform:none;width:100%;text-align:center;order:2;}
+  }
+
+  /* ---------- CHIPS DE STATUS (atalho de filtro) ---------- */
+  .chips-status{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+  .chip-status{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;border:1.5px solid transparent;background:var(--creme-escuro);color:var(--texto-claro);font-size:12.5px;font-weight:600;transition:.12s;}
+  .chip-status b{font-weight:800;}
+  .chip-status:hover{filter:brightness(.97);}
+  .chip-status.selecionado{border-color:currentColor;}
+  .chip-status.agendado{background:var(--verde-ok-claro);color:var(--verde-ok);}
+  .chip-status.realizado{background:var(--azul-claro);color:var(--azul);}
+  .chip-status.desmarcou{background:#FBE9DB;color:#B06B41;}
+  .chip-status.naoagendou{background:var(--vermelho-claro);color:var(--vermelho);}
+  .chip-status.aguardando{background:#FCEFDC;color:#A17A3E;}
+
+  /* ---------- CABEÇALHO DE PAINEL COM "RECOLHER" ---------- */
+  .painel-secao-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px;}
+  .painel-secao-header h2{margin:0;}
+  .btn-recolher{background:none;border:1px solid var(--borda);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;color:var(--texto-claro);white-space:nowrap;}
+  .btn-recolher:hover{background:var(--creme-escuro);color:var(--verde-pinho);}
 
   /* ---------- CARDS GERAIS ---------- */
   .grid-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px;}
@@ -104,9 +128,12 @@
   .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;}
   .pill.agendado{background:var(--verde-ok-claro);color:var(--verde-ok);}
   .pill.realizado{background:var(--azul-claro);color:var(--azul);}
-  .pill.desmarcou{background:#fdeed6;color:#a9660f;}
+  .pill.desmarcou{background:#FBE9DB;color:#B06B41;}
   .pill.naoagendou{background:var(--vermelho-claro);color:var(--vermelho);}
-  .pill.aguardando{background:#fbecd0;color:#8a5c10;}
+  .pill.aguardando{background:#FCEFDC;color:#A17A3E;}
+  .pill.feito{background:var(--verde-ok-claro);color:var(--verde-ok);}
+  .pill.pendente{background:#FCEFDC;color:#A17A3E;}
+  .tag-sem-nf{display:inline-block;padding:2px 8px;border-radius:8px;font-size:10.5px;font-weight:700;color:var(--texto-claro);background:var(--creme-escuro);white-space:nowrap;}
 
   .painel-secao{background:var(--branco);border:1px solid var(--borda);border-radius:var(--raio);padding:18px 20px;margin-bottom:20px;box-shadow:var(--sombra);}
   .painel-secao h2{margin:0 0 4px;font-size:15px;color:var(--verde-pinho);}
@@ -114,11 +141,11 @@
 
   #pendentes-contagem{color:var(--texto-claro);font-size:14px;font-weight:500;}
   #lista-pendentes{display:flex;flex-direction:column;gap:8px;}
-  .pendente-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border-radius:10px;background:#f6ead9;font-size:13px;flex-wrap:wrap;}
+  .pendente-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border-radius:10px;background:#FAEFE3;font-size:13px;flex-wrap:wrap;}
   .pendente-info b{color:var(--marrom-escuro);}
   .pendente-info span{display:block;color:var(--texto-claro);font-size:12px;margin-top:2px;}
   .pendente-item button{background:none;border:none;color:var(--marrom-escuro);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;padding:4px 0;text-decoration:underline;}
-  .pendente-item button:hover{color:var(--marrom);}
+  .pendente-item button:hover{color:var(--marrom-escuro);}
   .lembrete-hoje{color:var(--marrom-escuro);font-weight:700;}
   .lembrete-atrasado{color:var(--vermelho);font-weight:700;}
   .vazio-pendentes{font-size:13px;color:var(--texto-claro);padding:6px 0;}
@@ -126,7 +153,7 @@
   /* destaque da semana atual (a de hoje, não a de mais contatos) */
   .semana-linha-atual td{background:var(--creme-escuro);}
   .semana-linha-atual td:first-child{font-weight:700;color:var(--marrom-escuro);}
-  .semana-linha-atual td:first-child::after{content:'· hoje';font-weight:600;font-size:11.5px;color:var(--marrom);margin-left:6px;}
+  .semana-linha-atual td:first-child::after{content:'· hoje';font-weight:600;font-size:11.5px;color:var(--marrom-escuro);margin-left:6px;}
   .semana-num{font-weight:700;color:var(--verde-pinho);}
 
   /* metas */
@@ -145,7 +172,7 @@
   .meta-rodape input.input-meta{display:block;width:88px;padding:6px 8px;border:1px solid var(--borda);border-radius:6px;font-size:13px;margin-top:3px;}
   .meta-status{font-size:13px;font-weight:700;margin-left:auto;}
   .meta-status.ok{color:var(--verde-ok);}
-  .meta-status.super{color:var(--marrom);}
+  .meta-status.super{color:var(--marrom-escuro);}
   .meta-status.andamento{color:var(--texto-claro);}
   .meta-status.falhou{color:var(--vermelho);}
 
@@ -155,12 +182,12 @@
   .filtros input[type=text]{flex:1;min-width:180px;}
   .btn{padding:10px 16px;border-radius:9px;border:none;font-size:13px;font-weight:700;background:var(--verde-pinho);color:var(--creme);}
   .btn:hover{background:var(--verde-pinho-escuro);}
-  .btn.marrom{background:var(--marrom);color:var(--creme);}
-  .btn.marrom:hover{background:var(--marrom-escuro);}
+  .btn.marrom{background:var(--marrom-escuro);color:var(--creme);}
+  .btn.marrom:hover{background:#8C4C1C;}
   .btn.outline{background:transparent;border:1px solid var(--borda);color:var(--texto);}
   .btn.outline:hover{border-color:var(--verde-pinho);color:var(--verde-pinho);}
   .btn.vermelho{background:var(--vermelho-claro);color:var(--vermelho);}
-  .btn.vermelho:hover{background:#f0d3d2;}
+  .btn.vermelho:hover{background:#F5DCDC;}
   .btn.sm{padding:6px 11px;font-size:12px;border-radius:7px;}
 
   .tabela-wrap{overflow-x:auto;border:1px solid var(--borda);border-radius:var(--raio);background:var(--branco);}
@@ -175,7 +202,7 @@
   thead tr th:last-child{border-top-right-radius:var(--raio);}
   /* listras bem sutis pra facilitar acompanhar a linha com o olho numa tabela
      com tantas colunas — quase imperceptíveis, só ajudam a não "perder a linha" */
-  tr:nth-child(even) td{background:rgba(27,67,50,.025);}
+  tr:nth-child(even) td{background:rgba(118,106,163,.035);}
   /* separadores discretos entre grupos de colunas (quem é / onde-tipo / quando-status /
      agendamento), pra tabela não virar uma parede única de informação */
   #painel-tabela th:nth-child(3), #painel-tabela td:nth-child(3),
@@ -194,36 +221,44 @@
   td.acoes{display:flex;gap:6px;align-items:flex-start;}
   td:has(> .chk-agendado){text-align:center;}
   .vazio{padding:40px 20px;text-align:center;color:var(--texto-claro);font-size:14px;}
-  tr.linha-hoje td{background:rgba(138,90,52,.08);}
+  tr.linha-hoje td{background:rgba(224,164,124,.16);}
   tr.linha-hoje td:first-child{box-shadow:inset 3px 0 0 var(--marrom);}
-  .tag-hoje{display:inline-flex;align-items:center;line-height:1;margin-left:8px;padding:4px 8px;border-radius:20px;font-size:10px;font-weight:700;background:var(--marrom);color:var(--creme);vertical-align:middle;white-space:nowrap;}
+  .tag-hoje{display:inline-flex;align-items:center;line-height:1;margin-left:8px;padding:4px 8px;border-radius:20px;font-size:10px;font-weight:700;background:var(--marrom-escuro);color:var(--creme);vertical-align:middle;white-space:nowrap;}
   .hora-agend{margin-left:7px;color:var(--texto-claro);font-size:11.5px;font-variant-numeric:tabular-nums;}
   /* sempre na mesma linha do nome (nunca embaixo) — pra nenhuma linha da tabela
      ficar mais alta que as outras por causa de um aviso */
-  .badge-alerta{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:8px;font-size:10.5px;font-weight:700;color:#a9660f;background:#fdf1e0;white-space:nowrap;vertical-align:middle;}
+  .badge-alerta{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:8px;font-size:10.5px;font-weight:700;color:#B06B41;background:#FBEADA;white-space:nowrap;vertical-align:middle;}
   .badge-mesmo-contato{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:8px;font-size:10.5px;font-weight:700;color:var(--marrom-escuro);background:var(--creme-escuro);white-space:nowrap;vertical-align:middle;}
   /* coluna de ações (Editar) fica grudada na direita, sempre visível, sem precisar
      arrastar a rolagem até o fim só pra achar o botão de editar */
   #painel-tabela td.acoes{position:sticky;right:0;background:var(--branco);box-shadow:-8px 0 10px -8px rgba(0,0,0,.2);}
   #painel-tabela th:last-child{position:sticky;right:0;background:var(--verde-pinho);z-index:2;}
   #painel-tabela tr:hover td.acoes{background:var(--creme);}
-  #painel-tabela tr.linha-hoje td.acoes{background:#f3ece2;}
-  .chk-agendado{width:18px;height:18px;accent-color:var(--marrom);cursor:pointer;margin-top:2px;}
+  #painel-tabela tr.linha-hoje td.acoes{background:#FBF1E7;}
+  .chk-agendado{width:18px;height:18px;accent-color:var(--marrom-escuro);cursor:pointer;margin-top:2px;}
 
   /* modal */
-  .overlay{position:fixed;inset:0;background:rgba(15,43,32,.55);display:flex;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto;z-index:50;}
+  .overlay{position:fixed;inset:0;background:rgba(58,50,64,.55);display:flex;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto;z-index:50;}
   .modal{background:var(--branco);border-radius:16px;max-width:560px;width:100%;padding:26px 26px 22px;box-shadow:0 20px 50px rgba(0,0,0,.3);}
   .modal h2{margin:0 0 4px;color:var(--verde-pinho);font-size:18px;}
   .modal .fechar{float:right;background:none;border:none;font-size:20px;color:var(--texto-claro);}
   .campo{margin-bottom:16px;position:relative;}
   .check-inline{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--texto-claro);margin:-4px 0 16px;cursor:pointer;line-height:1.4;}
-  .check-inline input{margin-top:3px;flex-shrink:0;width:15px;height:15px;accent-color:var(--marrom);cursor:pointer;}
+  .check-inline input{margin-top:3px;flex-shrink:0;width:15px;height:15px;accent-color:var(--marrom-escuro);cursor:pointer;}
   .campo label{display:block;font-size:12px;font-weight:700;color:var(--texto-claro);margin-bottom:5px;}
+  .campo label .btn-copiar{display:inline-block;margin-left:6px;padding:1px 8px;border:1px solid var(--borda);border-radius:20px;background:var(--branco);color:var(--verde-pinho);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;cursor:pointer;vertical-align:1px;}
+  .campo label .btn-copiar:hover{background:var(--creme-escuro);}
+  .chips-servico{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px;}
+  .chip-servico{padding:6px 13px;border-radius:20px;border:1px solid var(--borda);background:var(--branco);color:var(--texto);font-size:12.5px;cursor:pointer;transition:.12s;}
+  .chip-servico:hover{border-color:var(--verde-pinho-claro);}
+  .chip-servico.selecionado{background:var(--verde-pinho);border-color:var(--verde-pinho);color:var(--creme);font-weight:600;}
+  .add-servico{display:flex;gap:6px;margin-bottom:16px;}
+  .add-servico input{flex:1;padding:8px 10px;border:1px solid var(--borda);border-radius:7px;font-size:13px;background:var(--creme);}
   .campo input,.campo select,.campo textarea{width:100%;padding:10px 11px;border:1px solid var(--borda);border-radius:8px;font-size:14px;background:var(--creme);}
   .campo textarea{resize:vertical;min-height:56px;}
   .linha2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .modal-acoes{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
-  .historico-contato{background:var(--azul-claro);border:1px solid #c7dae8;border-radius:10px;padding:10px 13px;font-size:12.5px;color:var(--azul);margin:-2px 0 13px;line-height:1.5;}
+  .historico-contato{background:var(--azul-claro);border:1px solid #D6DEEC;border-radius:10px;padding:10px 13px;font-size:12.5px;color:var(--azul);margin:-2px 0 13px;line-height:1.5;}
   .sugestoes-tel{position:absolute;top:100%;left:0;right:0;background:var(--branco);border:1px solid var(--borda);border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,.14);z-index:6;max-height:210px;overflow-y:auto;margin-top:4px;}
   .sugestoes-tel button{display:block;width:100%;text-align:left;background:none;border:none;padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--borda);color:var(--texto);}
   .sugestoes-tel button:last-child{border-bottom:none;}
@@ -278,7 +313,7 @@
 <!-- ===================== LOGIN ===================== -->
 <div id="tela-login">
   <div class="login-card">
-    <img class="logo" src="icons/icon-192.png?v=2" alt="Agenda Olhatta">
+    <img class="logo" src="icons/icon-192.png?v=3" alt="Agenda Olhatta">
     <h1>Agenda Olhatta</h1>
     <p>Controle de contatos e agendamentos da clínica</p>
     <button class="btn-google" id="btn-login-google">
@@ -294,7 +329,7 @@
 <div id="app">
   <header class="topo">
     <div class="topo-marca">
-      <img src="icons/icon-192.png?v=2" alt="">
+      <img src="icons/icon-192.png?v=3" alt="">
       <div><strong>Agenda Olhatta</strong><span>Contatos &amp; Agendamentos</span></div>
     </div>
     <div class="topo-acoes">
@@ -308,17 +343,21 @@
 
   <nav class="abas">
     <button class="ativa" data-aba="agendamentos">Agendamentos <span class="badge-aba" id="badge-atrasados" hidden></span></button>
+    <button data-aba="notas">Notas Fiscais</button>
     <button data-aba="anual">Comparativo Anual</button>
   </nav>
 
   <main>
     <!-- ---------- ABA AGENDAMENTOS ---------- -->
     <section id="aba-agendamentos">
-      <div class="nav-mes">
-        <button id="mes-anterior">&#8249;</button>
-        <div class="rotulo" id="mes-rotulo">Setembro 2026</div>
-        <button id="mes-proximo">&#8250;</button>
-        <button class="hoje" id="mes-hoje">Hoje</button>
+      <div class="topo-aba">
+        <div class="nav-mes">
+          <button id="mes-anterior">&#8249;</button>
+          <div class="rotulo" id="mes-rotulo">Setembro 2026</div>
+          <button id="mes-proximo">&#8250;</button>
+          <button class="hoje" id="mes-hoje">Hoje</button>
+        </div>
+        <button class="btn marrom btn-novo-destaque" id="btn-novo">+ Novo contato</button>
       </div>
 
       <div class="grid-cards" id="cards-resumo"></div>
@@ -329,13 +368,19 @@
       </div>
 
       <div class="painel-secao">
-        <h2>Metas do mês</h2>
+        <div class="painel-secao-header">
+          <h2>Metas do mês</h2>
+          <button type="button" class="btn-recolher" id="toggle-metas">Recolher ▾</button>
+        </div>
         <div class="metas-grid" id="metas-grid"></div>
       </div>
 
       <div class="painel-secao">
-        <h2>Contatos por semana</h2>
-        <div class="tabela-wrap compacta">
+        <div class="painel-secao-header">
+          <h2>Contatos por semana</h2>
+          <button type="button" class="btn-recolher" id="toggle-semanas">Recolher ▾</button>
+        </div>
+        <div class="tabela-wrap compacta" id="semanas-wrap">
           <table>
             <thead><tr><th>Semana</th><th>Contatos</th></tr></thead>
             <tbody id="grafico-semanas"></tbody>
@@ -345,14 +390,15 @@
 
       <div class="painel-secao" id="painel-tabela">
         <h2>Contatos e agendamentos</h2>
+        <div class="chips-status" id="chips-status"></div>
         <div class="filtros">
           <input type="text" id="filtro-busca" placeholder="Buscar em qualquer campo (nome, telefone, clínica, motivo, obs...)...">
-          <select id="filtro-status"><option value="">Status (todos)</option></select>
+          <select id="filtro-status" style="display:none"><option value="">Status (todos)</option></select>
           <select id="filtro-tipo"><option value="">Tipo (todos)</option></select>
           <select id="filtro-cidade"><option value="">Cidade (todas)</option></select>
           <select id="filtro-clinica"><option value="">Clínica (todas)</option></select>
           <select id="filtro-motivo"><option value="">Motivo (todos)</option></select>
-          <button class="btn marrom" id="btn-novo">+ Novo contato</button>
+          <button type="button" class="btn outline sm" id="btn-limpar-filtros" hidden>Limpar filtros</button>
         </div>
         <div class="tabela-wrap">
           <table>
@@ -366,6 +412,45 @@
           </table>
         </div>
         <div class="vazio" id="tabela-vazia" hidden>Nenhum contato encontrado para este mês/filtro.</div>
+      </div>
+    </section>
+
+    <!-- ---------- ABA NOTAS FISCAIS ---------- -->
+    <section id="aba-notas" hidden>
+      <div class="nav-mes">
+        <button id="nf-mes-anterior">&#8249;</button>
+        <div class="rotulo" id="nf-mes-rotulo">Outubro 2026</div>
+        <button id="nf-mes-proximo">&#8250;</button>
+        <button class="hoje" id="nf-mes-hoje">Hoje</button>
+      </div>
+
+      <div class="grid-cards" id="nf-cards-resumo"></div>
+
+      <div class="painel-secao" id="painel-tabela-nf">
+        <h2>Lançamentos</h2>
+        <div class="filtros">
+          <input type="text" id="nf-filtro-busca" placeholder="Buscar por cliente, animal, telefone, CPF...">
+          <select id="nf-filtro-situacao">
+            <option value="">Situação (todas)</option>
+            <option value="pendente">Pendente</option>
+            <option value="feito">Feito</option>
+          </select>
+          <button class="btn outline" id="nf-btn-servicos">Gerenciar serviços</button>
+          <button class="btn marrom" id="nf-btn-novo">+ Novo lançamento</button>
+        </div>
+        <div class="tabela-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Cliente</th><th>Animal</th><th>Telefone</th><th>Cidade</th><th>Serviço(s)</th>
+                <th>Data pagto.</th><th>Pagamento</th><th>Cobrado</th><th>Na nota</th>
+                <th>NF?</th><th>Situação</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="nf-tabela-corpo"></tbody>
+          </table>
+        </div>
+        <div class="vazio" id="nf-tabela-vazia" hidden>Nenhum lançamento neste mês/filtro.</div>
       </div>
     </section>
 
@@ -465,6 +550,105 @@
     <button class="fechar" id="fechar-modal-categorias">&times;</button>
     <h2>Categorias</h2>
     <div class="cat-grid" id="cat-grid"></div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: NOVO/EDITAR LANÇAMENTO DE NF ===================== -->
+<div class="overlay" id="modal-nf" hidden>
+  <div class="modal">
+    <button class="fechar" id="fechar-modal-nf">&times;</button>
+    <h2 id="nf-titulo">Novo lançamento</h2>
+    <form id="form-nf">
+      <div class="linha2">
+        <div class="campo"><label>Telefone</label><input type="text" id="nf-f-telefone" placeholder="(00) 00000-0000" autocomplete="off"></div>
+        <div class="campo"><label>Animal</label><input type="text" id="nf-f-animal"></div>
+      </div>
+      <div class="linha2">
+        <div class="campo"><label>Cliente</label><input type="text" id="nf-f-cliente"></div>
+        <div class="campo"><label>Cidade</label><select id="nf-f-cidade"></select></div>
+      </div>
+      <div class="campo"><label>Data do pagamento</label><input type="date" id="nf-f-datapagamento"></div>
+
+      <div class="campo">
+        <label>Serviço(s)</label>
+        <div class="chips-servico" id="nf-chips-servico"></div>
+        <div class="add-servico">
+          <input type="text" id="nf-novo-servico" placeholder="Adicionar novo serviço...">
+          <button type="button" class="btn outline sm" id="nf-btn-add-servico">Adicionar</button>
+        </div>
+      </div>
+
+      <div class="linha2">
+        <div class="campo"><label>Valor cobrado (R$)</label><input type="number" step="0.01" min="0" id="nf-f-cobrado" placeholder="0,00"></div>
+        <div class="campo"><label>Splits (R$)</label><input type="number" step="0.01" min="0" id="nf-f-splits" placeholder="0,00"></div>
+      </div>
+      <div class="linha2">
+        <div class="campo"><label>Valor na nota (R$)</label><input type="text" id="nf-f-valornota" readonly></div>
+        <div class="campo"><label>Forma de pagamento</label>
+          <select id="nf-f-pagamento">
+            <option>PIX</option>
+            <option>Débito</option>
+            <option>Crédito à vista</option>
+            <option>Crédito 2x</option>
+            <option>Crédito 3x</option>
+            <option>Crédito 4x</option>
+            <option>Crédito 5x</option>
+            <option>Crédito 6x</option>
+            <option>Crédito 7x</option>
+            <option>Crédito 8x</option>
+            <option>Crédito 9x</option>
+            <option>Crédito 10x</option>
+          </select>
+        </div>
+      </div>
+
+      <label class="check-inline">
+        <input type="checkbox" id="nf-f-quer-nf" checked>
+        Cliente quer nota fiscal
+      </label>
+
+      <div id="nf-dados-nf-bloco">
+        <div class="linha2">
+          <div class="campo"><label>Nome completo (NF) <button type="button" class="btn-copiar" data-campo="nf-f-nome">copiar</button></label><input type="text" id="nf-f-nome"></div>
+          <div class="campo"><label>CPF <button type="button" class="btn-copiar" data-campo="nf-f-cpf">copiar</button></label><input type="text" id="nf-f-cpf" placeholder="000.000.000-00"></div>
+        </div>
+        <div class="linha2">
+          <div class="campo"><label>CEP <button type="button" class="btn-copiar" data-campo="nf-f-cep">copiar</button></label><input type="text" id="nf-f-cep" placeholder="00000-000"></div>
+          <div class="campo"><label>Número <button type="button" class="btn-copiar" data-campo="nf-f-numero">copiar</button></label><input type="text" id="nf-f-numero"></div>
+        </div>
+        <div class="linha2">
+          <div class="campo"><label>Rua <button type="button" class="btn-copiar" data-campo="nf-f-rua">copiar</button></label><input type="text" id="nf-f-rua"></div>
+          <div class="campo"><label>Bairro <button type="button" class="btn-copiar" data-campo="nf-f-bairro">copiar</button></label><input type="text" id="nf-f-bairro"></div>
+        </div>
+        <div class="campo"><label>E-mail <button type="button" class="btn-copiar" data-campo="nf-f-email">copiar</button></label><input type="email" id="nf-f-email"></div>
+      </div>
+
+      <div class="campo"><label>Observação <button type="button" class="btn-copiar" data-campo="nf-f-obs">copiar</button></label><textarea id="nf-f-obs"></textarea></div>
+
+      <label class="check-inline" id="nf-campo-feito" hidden>
+        <input type="checkbox" id="nf-f-feito">
+        Feito (nota já emitida)
+      </label>
+
+      <div class="modal-acoes">
+        <button type="button" class="btn vermelho" id="btn-excluir-nf" hidden>Excluir</button>
+        <button type="button" class="btn outline" id="btn-cancelar-nf">Cancelar</button>
+        <button type="submit" class="btn marrom">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== MODAL: GERENCIAR SERVIÇOS SALVOS ===================== -->
+<div class="overlay" id="modal-servicos" hidden>
+  <div class="modal">
+    <button class="fechar" id="fechar-modal-servicos">&times;</button>
+    <h2>Serviços salvos</h2>
+    <div class="chips" id="servicos-lista"></div>
+    <div class="cat-add">
+      <input type="text" id="servicos-novo-input" placeholder="Adicionar...">
+      <button class="btn sm marrom" id="servicos-novo-btn">Add</button>
+    </div>
   </div>
 </div>
 
