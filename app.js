@@ -43,7 +43,8 @@ let state = {
   metas: {},
   nf: { servicosSalvos: [] },
   nfEntries: [],
-  linksUteis: []
+  linksUteis: [],
+  linksUteisNf: []
 };
 let carregouDoc = false;
 let carregouEntries = false;
@@ -131,6 +132,7 @@ function iniciarEscuta() {
       ['clinicas','cidades','tipos','motivos'].forEach(k => { if (!Array.isArray(state.categorias[k])) state.categorias[k] = []; });
       state.metas = d.metas || {};
       state.linksUteis = Array.isArray(d.linksUteis) ? d.linksUteis : [];
+      state.linksUteisNf = Array.isArray(d.linksUteisNf) ? d.linksUteisNf : [];
       carregouDoc = true;
       atualizarStatusSync(snap.metadata.hasPendingWrites);
       renderTudo();
@@ -262,10 +264,16 @@ function salvarCampoMeta(mesKey, campo, valor) {
   return docRef.update({ ['metas.' + mesKey + '.' + campo]: valor });
 }
 
-// ---- Links úteis: botões de atalho que ela mesma cadastra na Visão Geral
-// (ex: planilha, WhatsApp da clínica, site) — lista pequena, salva inteira ----
-function salvarLinksUteis(lista) {
-  return docRef.update({ linksUteis: lista });
+// ---- Links úteis: botões de atalho que ela mesma cadastra (ex: planilha,
+// WhatsApp da clínica, site) — Agendamentos e Notas Fiscais têm cada um a
+// SUA PRÓPRIA listinha agora (campos separados no Firestore), pra não misturar
+// atalhos de um módulo com o outro
+const LINKS_CONTEXTOS = {
+  agendamentos: { campo: 'linksUteis', grid: 'links-uteis-grid', vazio: 'links-uteis-vazio' },
+  nf: { campo: 'linksUteisNf', grid: 'links-uteis-grid-nf', vazio: 'links-uteis-vazio-nf' }
+};
+function salvarLinksUteis(campo, lista) {
+  return docRef.update({ [campo]: lista });
 }
 function normalizarUrl(url) {
   url = (url || '').trim();
@@ -274,15 +282,12 @@ function normalizarUrl(url) {
   return url;
 }
 
+let editingLinkContexto = 'agendamentos';
 let editingLinkIdx = null;
-// Os mesmos links aparecem nas duas abas (Agendamentos e Notas Fiscais) —
-// cada uma tem seu próprio <div> de grade, mas é a mesma lista salva uma vez só
 function renderLinksUteis() {
-  const lista = state.linksUteis || [];
-  [
-    { grid: 'links-uteis-grid', vazio: 'links-uteis-vazio' },
-    { grid: 'links-uteis-grid-nf', vazio: 'links-uteis-vazio-nf' }
-  ].forEach(({ grid, vazio }) => {
+  Object.keys(LINKS_CONTEXTOS).forEach(ctx => {
+    const { campo, grid, vazio } = LINKS_CONTEXTOS[ctx];
+    const lista = state[campo] || [];
     const cont = document.getElementById(grid);
     const elVazio = document.getElementById(vazio);
     if (!cont) return;
@@ -295,22 +300,24 @@ function renderLinksUteis() {
       </div>
     `).join('');
     cont.querySelectorAll('.link-editar').forEach(btn => {
-      btn.addEventListener('click', () => abrirModalLink(Number(btn.dataset.idx)));
+      btn.addEventListener('click', () => abrirModalLink(ctx, Number(btn.dataset.idx)));
     });
     cont.querySelectorAll('.link-excluir').forEach(btn => {
       btn.addEventListener('click', () => {
         const idx = Number(btn.dataset.idx);
         if (!confirm('Excluir este link?')) return;
-        const nova = state.linksUteis.slice();
+        const nova = state[campo].slice();
         nova.splice(idx, 1);
-        salvarLinksUteis(nova).catch(err => mostrarToast('Não foi possível excluir: ' + err.message));
+        salvarLinksUteis(campo, nova).catch(err => mostrarToast('Não foi possível excluir: ' + err.message));
       });
     });
   });
 }
-function abrirModalLink(idx) {
+function abrirModalLink(contexto, idx) {
+  editingLinkContexto = contexto;
   editingLinkIdx = (idx === null || idx === undefined) ? null : idx;
-  const l = editingLinkIdx !== null ? state.linksUteis[editingLinkIdx] : null;
+  const campo = LINKS_CONTEXTOS[contexto].campo;
+  const l = editingLinkIdx !== null ? state[campo][editingLinkIdx] : null;
   document.getElementById('link-titulo').textContent = l ? 'Editar link' : 'Novo link';
   document.getElementById('link-f-nome').value = l ? l.nome||'' : '';
   document.getElementById('link-f-url').value = l ? l.url||'' : '';
@@ -318,8 +325,8 @@ function abrirModalLink(idx) {
   document.getElementById('modal-link').hidden = false;
 }
 function fecharModalLink() { document.getElementById('modal-link').hidden = true; }
-document.getElementById('btn-add-link').addEventListener('click', () => abrirModalLink(null));
-document.getElementById('btn-add-link-nf').addEventListener('click', () => abrirModalLink(null));
+document.getElementById('btn-add-link').addEventListener('click', () => abrirModalLink('agendamentos', null));
+document.getElementById('btn-add-link-nf').addEventListener('click', () => abrirModalLink('nf', null));
 document.getElementById('fechar-modal-link').addEventListener('click', fecharModalLink);
 document.getElementById('btn-cancelar-link').addEventListener('click', fecharModalLink);
 document.getElementById('form-link').addEventListener('submit', ev => {
@@ -327,18 +334,20 @@ document.getElementById('form-link').addEventListener('submit', ev => {
   const nome = document.getElementById('link-f-nome').value.trim();
   const url = normalizarUrl(document.getElementById('link-f-url').value);
   if (!nome || !url) return;
-  const nova = (state.linksUteis||[]).slice();
+  const campo = LINKS_CONTEXTOS[editingLinkContexto].campo;
+  const nova = (state[campo]||[]).slice();
   if (editingLinkIdx !== null) nova[editingLinkIdx] = { nome, url };
   else nova.push({ nome, url });
-  salvarLinksUteis(nova).then(() => { mostrarToast('Link salvo'); fecharModalLink(); })
+  salvarLinksUteis(campo, nova).then(() => { mostrarToast('Link salvo'); fecharModalLink(); })
     .catch(err => mostrarToast('Não foi possível salvar: ' + err.message));
 });
 document.getElementById('btn-excluir-link').addEventListener('click', () => {
   if (editingLinkIdx === null) return;
   if (!confirm('Excluir este link?')) return;
-  const nova = state.linksUteis.slice();
+  const campo = LINKS_CONTEXTOS[editingLinkContexto].campo;
+  const nova = state[campo].slice();
   nova.splice(editingLinkIdx, 1);
-  salvarLinksUteis(nova).then(() => { mostrarToast('Link excluído'); fecharModalLink(); })
+  salvarLinksUteis(campo, nova).then(() => { mostrarToast('Link excluído'); fecharModalLink(); })
     .catch(err => mostrarToast('Não foi possível excluir: ' + err.message));
 });
 

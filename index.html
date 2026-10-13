@@ -185,16 +185,22 @@
   .painel-inicio h2 .ponto.pt-ambar{background:#8F6307;}
   .painel-inicio h2 .contagem{margin-left:auto;background:var(--creme-escuro);color:var(--texto-claro);font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;text-transform:none;letter-spacing:0;}
 
-  /* ---------- LINKS ÚTEIS (visão geral) ---------- */
-  .links-uteis-painel{padding:14px 20px;}
-  .links-uteis-painel .painel-secao-header{margin-bottom:0;}
-  .links-uteis{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
-  .link-chip{display:flex;align-items:center;gap:2px;background:var(--creme-escuro);border-radius:999px;padding:4px 4px 4px 14px;}
-  .link-chip a{color:var(--verde-pinho-escuro);font-weight:700;font-size:13px;text-decoration:none;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;}
+  /* ---------- LINKS RÁPIDOS (barra fina, não é mais um painel grande —
+     pra não poluir o topo da tela; Agendamentos e Notas Fiscais têm cada
+     um a sua lista própria, sem misturar atalhos de um módulo no outro) --- */
+  .links-rapidos{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;margin-bottom:18px;padding:0 2px;}
+  .links-rapidos-label{font-family:'Quicksand',sans-serif;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--texto-claro);flex-shrink:0;}
+  .links-uteis{display:flex;flex-wrap:wrap;gap:6px;}
+  .link-chip{display:flex;align-items:center;gap:1px;background:var(--creme-escuro);border-radius:999px;padding:4px 5px 4px 12px;transition:background .15s;}
+  .link-chip:hover{background:var(--marrom-claro);}
+  .link-chip a{color:var(--verde-pinho-escuro);font-weight:700;font-size:12.5px;text-decoration:none;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;}
   .link-chip a:hover{text-decoration:underline;}
-  .link-acao{width:24px;height:24px;border-radius:50%;border:none;background:transparent;color:var(--texto-claro);font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-  .link-acao:hover{background:var(--branco);color:var(--verde-pinho);}
-  .vazio-mini{font-size:12.5px;color:var(--texto-claro);margin-top:8px;}
+  .link-acao{width:20px;height:20px;border-radius:50%;border:none;background:transparent;color:var(--texto-claro);font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.45;transition:.15s;}
+  .link-chip:hover .link-acao, .link-acao:focus-visible{opacity:1;}
+  .link-acao:hover{background:var(--branco);color:var(--verde-pinho);opacity:1;}
+  .link-add-btn{width:24px;height:24px;border-radius:50%;border:1px dashed var(--borda);background:transparent;color:var(--texto-claro);font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.15s;}
+  .link-add-btn:hover{border-style:solid;border-color:var(--marrom);color:var(--marrom);background:var(--creme-escuro);}
+  .vazio-mini{font-size:12px;color:var(--texto-claro);}
   .modal-estreito{max-width:380px;}
 
   /* ---------- PESQUISA UNIVERSAL ---------- */
@@ -514,13 +520,11 @@
         <button class="btn marrom btn-novo-destaque" id="btn-novo">+ Novo contato</button>
       </div>
 
-      <div class="painel-secao links-uteis-painel">
-        <div class="painel-secao-header">
-          <h2>Links rápidos</h2>
-          <button type="button" class="btn outline sm" id="btn-add-link">+ Link</button>
-        </div>
+      <div class="links-rapidos">
+        <span class="links-rapidos-label">Links rápidos</span>
         <div class="links-uteis" id="links-uteis-grid"></div>
-        <div class="vazio-mini" id="links-uteis-vazio" hidden>Nenhum link ainda — adicione atalhos pra planilha, WhatsApp, site...</div>
+        <span class="vazio-mini" id="links-uteis-vazio" hidden>Nenhum link ainda</span>
+        <button type="button" class="link-add-btn" id="btn-add-link" title="Adicionar link rápido">+</button>
       </div>
 
       <div class="grid-cards" id="cards-resumo"></div>
@@ -621,13 +625,11 @@
         <button class="hoje" id="nf-mes-hoje">Hoje</button>
       </div>
 
-      <div class="painel-secao links-uteis-painel">
-        <div class="painel-secao-header">
-          <h2>Links rápidos</h2>
-          <button type="button" class="btn outline sm" id="btn-add-link-nf">+ Link</button>
-        </div>
+      <div class="links-rapidos">
+        <span class="links-rapidos-label">Links rápidos</span>
         <div class="links-uteis" id="links-uteis-grid-nf"></div>
-        <div class="vazio-mini" id="links-uteis-vazio-nf" hidden>Nenhum link ainda — adicione atalhos pra planilha, WhatsApp, site...</div>
+        <span class="vazio-mini" id="links-uteis-vazio-nf" hidden>Nenhum link ainda</span>
+        <button type="button" class="link-add-btn" id="btn-add-link-nf" title="Adicionar link rápido">+</button>
       </div>
 
       <div class="grid-cards" id="nf-cards-resumo"></div>
