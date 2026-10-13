@@ -265,29 +265,36 @@ function normalizarUrl(url) {
 }
 
 let editingLinkIdx = null;
+// Os mesmos links aparecem nas duas abas (Agendamentos e Notas Fiscais) —
+// cada uma tem seu próprio <div> de grade, mas é a mesma lista salva uma vez só
 function renderLinksUteis() {
-  const cont = document.getElementById('links-uteis-grid');
-  const vazio = document.getElementById('links-uteis-vazio');
-  if (!cont) return;
   const lista = state.linksUteis || [];
-  vazio.hidden = lista.length !== 0;
-  cont.innerHTML = lista.map((l, i) => `
-    <div class="link-chip">
-      <a href="${escapeHtml(normalizarUrl(l.url))}" target="_blank" rel="noopener">${escapeHtml(l.nome||'Link')}</a>
-      <button type="button" class="link-acao link-editar" data-idx="${i}" title="Editar">&#9998;</button>
-      <button type="button" class="link-acao link-excluir" data-idx="${i}" title="Excluir">&times;</button>
-    </div>
-  `).join('');
-  cont.querySelectorAll('.link-editar').forEach(btn => {
-    btn.addEventListener('click', () => abrirModalLink(Number(btn.dataset.idx)));
-  });
-  cont.querySelectorAll('.link-excluir').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = Number(btn.dataset.idx);
-      if (!confirm('Excluir este link?')) return;
-      const nova = state.linksUteis.slice();
-      nova.splice(idx, 1);
-      salvarLinksUteis(nova).catch(err => mostrarToast('Não foi possível excluir: ' + err.message));
+  [
+    { grid: 'links-uteis-grid', vazio: 'links-uteis-vazio' },
+    { grid: 'links-uteis-grid-nf', vazio: 'links-uteis-vazio-nf' }
+  ].forEach(({ grid, vazio }) => {
+    const cont = document.getElementById(grid);
+    const elVazio = document.getElementById(vazio);
+    if (!cont) return;
+    elVazio.hidden = lista.length !== 0;
+    cont.innerHTML = lista.map((l, i) => `
+      <div class="link-chip">
+        <a href="${escapeHtml(normalizarUrl(l.url))}" target="_blank" rel="noopener">${escapeHtml(l.nome||'Link')}</a>
+        <button type="button" class="link-acao link-editar" data-idx="${i}" title="Editar">&#9998;</button>
+        <button type="button" class="link-acao link-excluir" data-idx="${i}" title="Excluir">&times;</button>
+      </div>
+    `).join('');
+    cont.querySelectorAll('.link-editar').forEach(btn => {
+      btn.addEventListener('click', () => abrirModalLink(Number(btn.dataset.idx)));
+    });
+    cont.querySelectorAll('.link-excluir').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.idx);
+        if (!confirm('Excluir este link?')) return;
+        const nova = state.linksUteis.slice();
+        nova.splice(idx, 1);
+        salvarLinksUteis(nova).catch(err => mostrarToast('Não foi possível excluir: ' + err.message));
+      });
     });
   });
 }
@@ -302,6 +309,7 @@ function abrirModalLink(idx) {
 }
 function fecharModalLink() { document.getElementById('modal-link').hidden = true; }
 document.getElementById('btn-add-link').addEventListener('click', () => abrirModalLink(null));
+document.getElementById('btn-add-link-nf').addEventListener('click', () => abrirModalLink(null));
 document.getElementById('fechar-modal-link').addEventListener('click', fecharModalLink);
 document.getElementById('btn-cancelar-link').addEventListener('click', fecharModalLink);
 document.getElementById('form-link').addEventListener('submit', ev => {
@@ -568,6 +576,35 @@ document.querySelectorAll('nav.abas button').forEach(btn => {
   const el = document.getElementById('abas-data-hoje');
   if (el) el.textContent = hoje.getDate() + ' de ' + MESES[hoje.getMonth()].toLowerCase();
 })();
+
+// Segurar o mouse e arrastar pra ver as colunas que não cabem na tela, sem
+// precisar descer até a barra de rolagem embaixo da tabela
+function ativarArrastarScroll(el) {
+  if (!el || el.dataset.arrastarPronto) return;
+  el.dataset.arrastarPronto = '1';
+  let arrastando = false, inicioX = 0, scrollInicial = 0, moveu = false;
+  el.addEventListener('mousedown', ev => {
+    arrastando = true; moveu = false;
+    inicioX = ev.pageX;
+    scrollInicial = el.scrollLeft;
+  });
+  function parar() {
+    if (!arrastando) return;
+    arrastando = false;
+    el.classList.remove('arrastando');
+  }
+  el.addEventListener('mouseleave', parar);
+  el.addEventListener('mouseup', parar);
+  el.addEventListener('mousemove', ev => {
+    if (!arrastando) return;
+    const deslocamento = ev.pageX - inicioX;
+    if (Math.abs(deslocamento) > 4) { moveu = true; el.classList.add('arrastando'); }
+    if (moveu) { ev.preventDefault(); el.scrollLeft = scrollInicial - deslocamento; }
+  });
+  // evita que o "clique" no final de um arrasto acione botões/links por baixo
+  el.addEventListener('click', ev => { if (moveu) { ev.preventDefault(); ev.stopPropagation(); moveu = false; } }, true);
+}
+document.querySelectorAll('.tabela-wrap').forEach(ativarArrastarScroll);
 
 // ---------- popular <select> de filtros e formulário ----------
 function popularSelects() {
@@ -1123,18 +1160,10 @@ function renderTabela(mesKey) {
       <td>${formatarData(e.dataAgendamento)}${e.horario ? `<span class="hora-agend">${escapeHtml(e.horario)}</span>` : ''}${ehHoje ? '<span class="tag-hoje">Hoje</span>' : ''}</td>
       ${celObsClicavel(e.motivo, e.detalheMotivo, 'Motivo')}
       ${celObsClicavel(e.obs, '', 'Observação')}
-      <td class="acoes"><button class="btn outline sm btn-editar">Editar</button><button class="btn outline sm btn-duplicar" title="Cadastrar outro animal do mesmo tutor">Duplicar</button></td>
+      <td class="acoes"><button class="btn outline sm btn-editar">Editar</button></td>
     </tr>
   `;
   }).join('');
-
-  corpo.querySelectorAll('.btn-duplicar').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.closest('tr').dataset.id;
-      const entry = state.entries.find(e => e.id === id);
-      if (entry) duplicarContato(entry);
-    });
-  });
 
   corpo.querySelectorAll('.btn-editar').forEach(btn => {
     btn.addEventListener('click', () => {

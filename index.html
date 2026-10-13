@@ -88,7 +88,7 @@
 
   .layout-app{display:flex;align-items:flex-start;max-width:1560px;margin:0 auto;}
   nav.abas{display:flex;flex-direction:column;gap:6px;padding:20px 14px;background:var(--branco);border-right:1px solid var(--borda);position:sticky;top:66px;z-index:19;width:228px;flex-shrink:0;align-self:flex-start;height:calc(100vh - 66px);overflow-y:auto;}
-  .abas-contexto{font-family:'Nunito',sans-serif;font-size:11.5px;color:var(--texto-claro);padding:4px 14px 14px;text-transform:capitalize;}
+  .abas-contexto{font-family:'Nunito',sans-serif;font-size:11.5px;color:var(--texto-claro);padding:4px 14px 14px;}
   .abas-contexto strong{color:var(--verde-pinho-escuro);font-weight:700;}
   nav.abas button{display:flex;align-items:center;gap:10px;font-family:'Quicksand',sans-serif;padding:11px 16px;border:none;border-radius:14px;background:transparent;font-size:13.5px;font-weight:600;color:var(--texto-claro);white-space:nowrap;transition:.15s;text-align:left;width:100%;}
   nav.abas button:hover{color:var(--verde-pinho);background:var(--creme-escuro);}
@@ -243,7 +243,9 @@
   .btn.vermelho:hover{background:#F9D3D4;}
   .btn.sm{padding:6px 13px;font-size:12px;}
 
-  .tabela-wrap{overflow-x:auto;border:1px solid var(--borda);border-radius:var(--raio);background:var(--branco);}
+  .tabela-wrap{overflow-x:auto;border:1px solid var(--borda);border-radius:var(--raio);background:var(--branco);cursor:grab;}
+  .tabela-wrap.arrastando{cursor:grabbing;user-select:none;}
+  .tabela-wrap.arrastando *{user-select:none;}
   table{width:100%;border-collapse:collapse;min-width:980px;}
   th,td{padding:12px 13px;text-align:left;font-size:12.5px;line-height:1.45;border-bottom:1px solid var(--borda);white-space:nowrap;vertical-align:middle;}
   th{background:linear-gradient(120deg,var(--verde-pinho),var(--verde-pinho-escuro));color:var(--creme);font-family:'Quicksand',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:13px 10px;}
@@ -533,6 +535,15 @@
         <div class="rotulo" id="nf-mes-rotulo">Outubro 2026</div>
         <button id="nf-mes-proximo">&#8250;</button>
         <button class="hoje" id="nf-mes-hoje">Hoje</button>
+      </div>
+
+      <div class="painel-secao links-uteis-painel">
+        <div class="painel-secao-header">
+          <h2>Links úteis</h2>
+          <button type="button" class="btn outline sm" id="btn-add-link-nf">+ Link</button>
+        </div>
+        <div class="links-uteis" id="links-uteis-grid-nf"></div>
+        <div class="vazio-mini" id="links-uteis-vazio-nf" hidden>Nenhum link ainda — adicione atalhos pra planilha, WhatsApp, site...</div>
       </div>
 
       <div class="grid-cards" id="nf-cards-resumo"></div>
