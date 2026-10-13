@@ -59,6 +59,7 @@ let nfNomeSincronizado = true; // enquanto true, "Nome completo (NF)" copia o qu
 let abaAtiva = 'inicio';
 let filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', periodo: '' };
 let nfFiltros = { busca: '', cidade: '', querNf: '' };
+let inicioData = hojeStr(); // data escolhida na aba Início (padrão: hoje)
 let ordenacao = { campo: null, asc: true }; // null = ordem padrão (por data)
 let unsubDoc = null;
 let unsubEntries = null;
@@ -905,13 +906,18 @@ function renderInicio() {
   }
 }
 
-// Quem ELA agendou HOJE (dia em que falou com a pessoa/marcou o agendamento),
-// não importa pra quando ficou marcada a consulta — é só informativo, com
-// atalho pra editar caso precise ajustar algo
+// Rótulo pro título dos painéis: "hoje" quando a data escolhida é a de hoje,
+// senão a data por extenso (dd/mm)
+function rotuloDataInicio() {
+  return inicioData === hojeStr() ? 'hoje' : ('em ' + formatarData(inicioData));
+}
+
+// Quem ELA agendou NO DIA escolhido (dia em que falou com a pessoa/marcou o
+// agendamento), não importa pra quando ficou marcada a consulta — é só
+// informativo, com atalho pra editar caso precise ajustar algo
 function entriesAgendadosHoje() {
-  const hoje = hojeStr();
   return state.entries
-    .filter(e => e.status === 'Agendado' && e.dataContato === hoje)
+    .filter(e => e.status === 'Agendado' && e.dataContato === inicioData)
     .sort((a, b) => (a.dataAgendamento || '').localeCompare(b.dataAgendamento || '') || (a.horario || '').localeCompare(b.horario || ''));
 }
 
@@ -919,6 +925,8 @@ function renderAgendadosHoje() {
   const painel = document.getElementById('painel-agendados-hoje');
   const contagem = document.getElementById('agendados-hoje-contagem');
   const lista = document.getElementById('lista-agendados-hoje');
+  const titulo = document.getElementById('agendados-hoje-titulo');
+  if (titulo) titulo.textContent = 'Agendados ' + rotuloDataInicio();
   const hoje = hojeStr();
   const agendadosHoje = entriesAgendadosHoje();
 
@@ -950,12 +958,12 @@ function renderAgendadosHoje() {
   });
 }
 
-// Quem TEM consulta marcada pra HOJE (não importa quando foi agendado) — ela
-// confirma aqui se o cliente realmente veio; confirmando, já marca Realizado
+// Quem TEM consulta marcada pro DIA escolhido (não importa quando foi
+// agendado) — ela confirma aqui se o cliente realmente veio; confirmando, já
+// marca Realizado
 function entriesConsultasHoje() {
-  const hoje = hojeStr();
   return state.entries
-    .filter(e => e.status === 'Agendado' && e.dataAgendamento === hoje)
+    .filter(e => e.status === 'Agendado' && e.dataAgendamento === inicioData)
     .sort((a, b) => (a.horario || '').localeCompare(b.horario || ''));
 }
 
@@ -964,6 +972,9 @@ function renderConsultasHoje() {
   const contagem = document.getElementById('consultas-hoje-contagem');
   const lista = document.getElementById('lista-consultas-hoje');
   const vazio = document.getElementById('consultas-hoje-vazio');
+  const titulo = document.getElementById('consultas-hoje-titulo');
+  const ehHoje = inicioData === hojeStr();
+  if (titulo) titulo.textContent = 'Consultas ' + rotuloDataInicio();
   const consultasHoje = entriesConsultasHoje();
 
   painel.hidden = false;
@@ -972,6 +983,7 @@ function renderConsultasHoje() {
   if (consultasHoje.length === 0) {
     lista.innerHTML = '';
     if (vazio) vazio.hidden = false;
+    vazio.textContent = ehHoje ? 'Ninguém tem consulta marcada pra hoje.' : 'Ninguém tem consulta marcada pra ' + formatarData(inicioData) + '.';
     return;
   }
   if (vazio) vazio.hidden = true;
@@ -980,7 +992,7 @@ function renderConsultasHoje() {
     <div class="pendente-item">
       <div class="pendente-info">
         <b>${escapeHtml(e.nome || '(sem nome)')}</b> — ${telefoneClicavel(e.telefone)}${e.animal ? ' · ' + escapeHtml(e.animal) : ''}
-        <span>${e.horario ? 'Hoje às ' + escapeHtml(e.horario) : 'Hoje'}${e.clinica ? ' · ' + escapeHtml(e.clinica) : ''}</span>
+        <span>${e.horario ? (ehHoje ? 'Hoje às ' : formatarData(inicioData) + ' às ') + escapeHtml(e.horario) : (ehHoje ? 'Hoje' : formatarData(inicioData))}${e.clinica ? ' · ' + escapeHtml(e.clinica) : ''}</span>
       </div>
       <button type="button" class="btn marrom sm btn-confirmar-hoje" data-id="${e.id}">Confirmou?</button>
     </div>
@@ -1512,6 +1524,28 @@ function telefoneClicavel(telefone) {
 // ============================================================
 document.getElementById('btn-novo').addEventListener('click', () => abrirModalEntry(null));
 document.getElementById('btn-novo-inicio').addEventListener('click', () => abrirModalEntry(null));
+
+// ============================================================
+// ABA INÍCIO — seletor de data (padrão: hoje, mas dá pra escolher outro dia)
+// ============================================================
+(function () {
+  const inputData = document.getElementById('inicio-data');
+  const btnHoje = document.getElementById('inicio-data-hoje');
+  if (inputData) {
+    inputData.value = inicioData;
+    inputData.addEventListener('change', () => {
+      inicioData = inputData.value || hojeStr();
+      renderInicio();
+    });
+  }
+  if (btnHoje) {
+    btnHoje.addEventListener('click', () => {
+      inicioData = hojeStr();
+      if (inputData) inputData.value = inicioData;
+      renderInicio();
+    });
+  }
+})();
 document.getElementById('fechar-modal-entry').addEventListener('click', fecharModalEntry);
 document.getElementById('btn-cancelar-entry').addEventListener('click', fecharModalEntry);
 

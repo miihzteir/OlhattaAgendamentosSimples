@@ -176,7 +176,9 @@
   .painel-secao .desc{font-size:12px;color:var(--texto-claro);margin:0 0 16px;}
 
   /* ---------- ABA INÍCIO ---------- */
-  .inicio-topo{display:flex;justify-content:flex-end;margin-bottom:16px;}
+  .inicio-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+  .inicio-data-sel{display:flex;align-items:center;gap:8px;}
+  .inicio-data-sel input[type=date]{padding:9px 12px;border:1.5px solid var(--borda);border-radius:999px;font-size:13px;background:var(--branco);color:var(--texto);font-family:inherit;}
   .inicio-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start;}
   .painel-inicio{background:var(--branco);border:1px solid var(--borda);border-radius:var(--raio);padding:16px 18px;box-shadow:var(--sombra);}
   .painel-inicio h2{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-family:'Quicksand',sans-serif;font-size:13px;font-weight:800;color:var(--verde-pinho-escuro);text-transform:uppercase;letter-spacing:.4px;}
@@ -413,8 +415,10 @@
     .painel-secao{padding:14px 16px;}
     .painel-inicio{padding:13px 15px;}
     .inicio-grid{gap:10px;}
-    .inicio-topo{justify-content:stretch;}
+    .inicio-topo{flex-direction:column;align-items:stretch;}
     .inicio-topo .btn{width:100%;text-align:center;}
+    .inicio-data-sel{width:100%;}
+    .inicio-data-sel input[type=date]{flex:1;min-width:0;}
     /* no celular a tela é estreita; Editar e Duplicar lado a lado tomavam
        metade da largura visível da tabela — empilhados ficam bem mais estreitos */
     #painel-tabela td.acoes{flex-direction:column;gap:4px;padding:8px;}
@@ -497,17 +501,21 @@
     <!-- ---------- ABA INÍCIO ---------- -->
     <section id="aba-inicio">
       <div class="inicio-topo">
+        <div class="inicio-data-sel">
+          <input type="date" id="inicio-data" />
+          <button type="button" class="btn outline sm" id="inicio-data-hoje">Hoje</button>
+        </div>
         <button class="btn marrom" id="btn-novo-inicio">+ Novo contato</button>
       </div>
 
       <div class="inicio-grid">
         <div class="painel-inicio" id="painel-agendados-hoje" hidden>
-          <h2><span class="ponto pt-verde"></span>Agendados hoje<span class="contagem" id="agendados-hoje-contagem"></span></h2>
+          <h2><span class="ponto pt-verde"></span><span id="agendados-hoje-titulo">Agendados hoje</span><span class="contagem" id="agendados-hoje-contagem"></span></h2>
           <div id="lista-agendados-hoje"></div>
         </div>
 
         <div class="painel-inicio" id="painel-consultas-hoje" hidden>
-          <h2><span class="ponto pt-azul"></span>Consultas hoje<span class="contagem" id="consultas-hoje-contagem"></span></h2>
+          <h2><span class="ponto pt-azul"></span><span id="consultas-hoje-titulo">Consultas hoje</span><span class="contagem" id="consultas-hoje-contagem"></span></h2>
           <div id="lista-consultas-hoje"></div>
           <p class="vazio-mini" id="consultas-hoje-vazio" hidden>Ninguém tem consulta marcada pra hoje.</p>
         </div>
