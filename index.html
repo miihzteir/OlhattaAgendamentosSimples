@@ -175,6 +175,16 @@
   .painel-secao h2{margin:0 0 4px;font-size:15px;color:var(--verde-pinho);}
   .painel-secao .desc{font-size:12px;color:var(--texto-claro);margin:0 0 16px;}
 
+  /* ---------- ABA INÍCIO ---------- */
+  .inicio-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start;}
+  .painel-inicio{background:var(--branco);border:1px solid var(--borda);border-radius:var(--raio);padding:16px 18px;box-shadow:var(--sombra);}
+  .painel-inicio h2{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-family:'Quicksand',sans-serif;font-size:13px;font-weight:800;color:var(--verde-pinho-escuro);text-transform:uppercase;letter-spacing:.4px;}
+  .painel-inicio h2 .ponto{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .painel-inicio h2 .ponto.pt-verde{background:var(--verde-ok);}
+  .painel-inicio h2 .ponto.pt-azul{background:var(--azul);}
+  .painel-inicio h2 .ponto.pt-ambar{background:#8F6307;}
+  .painel-inicio h2 .contagem{margin-left:auto;background:var(--creme-escuro);color:var(--texto-claro);font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;text-transform:none;letter-spacing:0;}
+
   /* ---------- LINKS ÚTEIS (visão geral) ---------- */
   .links-uteis-painel{padding:14px 20px;}
   .links-uteis-painel .painel-secao-header{margin-bottom:0;}
@@ -202,8 +212,7 @@
   .resultado-pesquisa .rp-det{font-size:11.5px;color:var(--texto-claro);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .pesquisa-vazia{text-align:center;color:var(--texto-claro);font-size:13px;padding:24px 10px;}
 
-  #pendentes-contagem, #hoje-confirmar-contagem{color:var(--texto-claro);font-size:14px;font-weight:500;}
-  #lista-pendentes, #lista-hoje-confirmar{display:flex;flex-direction:column;gap:8px;}
+  #lista-pendentes, #lista-agendados-hoje, #lista-consultas-hoje{display:flex;flex-direction:column;gap:8px;}
   .btn-confirmar-hoje{flex-shrink:0;}
   .pendente-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border-radius:10px;background:var(--creme-escuro);font-size:13px;flex-wrap:wrap;}
   .pendente-info b{color:var(--marrom-escuro);}
@@ -390,6 +399,8 @@
     .card h3{font-size:10.5px;}
     .card .num{font-size:24px;}
     .painel-secao{padding:14px 16px;}
+    .painel-inicio{padding:13px 15px;}
+    .inicio-grid{gap:10px;}
     /* no celular a tela é estreita; Editar e Duplicar lado a lado tomavam
        metade da largura visível da tabela — empilhados ficam bem mais estreitos */
     #painel-tabela td.acoes{flex-direction:column;gap:4px;padding:8px;}
@@ -471,14 +482,21 @@
   <main>
     <!-- ---------- ABA INÍCIO ---------- -->
     <section id="aba-inicio">
-      <div class="painel-secao" id="painel-hoje-confirmar" hidden>
-        <h2>Agendados hoje <span id="hoje-confirmar-contagem"></span></h2>
-        <div id="lista-hoje-confirmar"></div>
-      </div>
+      <div class="inicio-grid">
+        <div class="painel-inicio" id="painel-agendados-hoje" hidden>
+          <h2><span class="ponto pt-verde"></span>Agendados hoje<span class="contagem" id="agendados-hoje-contagem"></span></h2>
+          <div id="lista-agendados-hoje"></div>
+        </div>
 
-      <div class="painel-secao" id="painel-pendentes" hidden>
-        <h2>Contatos pendentes <span id="pendentes-contagem"></span></h2>
-        <div id="lista-pendentes"></div>
+        <div class="painel-inicio" id="painel-consultas-hoje" hidden>
+          <h2><span class="ponto pt-azul"></span>Consultas hoje<span class="contagem" id="consultas-hoje-contagem"></span></h2>
+          <div id="lista-consultas-hoje"></div>
+        </div>
+
+        <div class="painel-inicio" id="painel-pendentes" hidden>
+          <h2><span class="ponto pt-ambar"></span>Contatos pendentes<span class="contagem" id="pendentes-contagem"></span></h2>
+          <div id="lista-pendentes"></div>
+        </div>
       </div>
 
       <div class="vazio" id="inicio-vazio">Nenhum contato aguardando nem agendado pra hoje. Tudo em dia!</div>
@@ -619,6 +637,11 @@
         <div class="filtros">
           <input type="text" id="nf-filtro-busca" placeholder="Buscar por cliente, animal, telefone, CPF...">
           <select id="nf-filtro-cidade"><option value="">Cidade (todas)</option></select>
+          <select id="nf-filtro-nota">
+            <option value="">Nota fiscal (todos)</option>
+            <option value="sim">Quer nota</option>
+            <option value="nao">Não quer nota</option>
+          </select>
           <button class="btn outline" id="nf-btn-servicos">Gerenciar serviços</button>
           <button class="btn marrom" id="nf-btn-novo">+ Novo lançamento</button>
         </div>

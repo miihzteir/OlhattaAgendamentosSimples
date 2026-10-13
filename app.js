@@ -57,7 +57,7 @@ let editingNfId = null;
 let nfNomeSincronizado = true; // enquanto true, "Nome completo (NF)" copia o que for digitado em "Cliente"
 let abaAtiva = 'inicio';
 let filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', periodo: '' };
-let nfFiltros = { busca: '', cidade: '' };
+let nfFiltros = { busca: '', cidade: '', querNf: '' };
 let ordenacao = { campo: null, asc: true }; // null = ordem padrão (por data)
 let unsubDoc = null;
 let unsubEntries = null;
@@ -881,38 +881,86 @@ function renderChipsStatus(mesKey) {
 }
 
 // ============================================================
-// ABA INÍCIO — painel inicial: pendentes + agendados de hoje pra confirmar
+// ABA INÍCIO — painel inicial: agendados hoje, consultas hoje, pendentes
 // ============================================================
 function renderInicio() {
   renderAgendadosHoje();
+  renderConsultasHoje();
   renderPainelPendentes();
   const vazio = document.getElementById('inicio-vazio');
   if (vazio) {
-    const semNada = document.getElementById('painel-hoje-confirmar').hidden && document.getElementById('painel-pendentes').hidden;
+    const semNada = document.getElementById('painel-agendados-hoje').hidden
+      && document.getElementById('painel-consultas-hoje').hidden
+      && document.getElementById('painel-pendentes').hidden;
     vazio.hidden = !semNada;
   }
 }
 
-// Agendados pra HOJE (status Agendado, data = hoje) — ela confirma aqui se o
-// cliente realmente veio; confirmando, já marca Realizado na hora
+// Quem ELA agendou HOJE (dia em que falou com a pessoa/marcou o agendamento),
+// não importa pra quando ficou marcada a consulta — é só informativo, com
+// atalho pra editar caso precise ajustar algo
 function entriesAgendadosHoje() {
   const hoje = hojeStr();
   return state.entries
-    .filter(e => e.status === 'Agendado' && e.dataAgendamento === hoje)
-    .sort((a, b) => (a.horario || '').localeCompare(b.horario || ''));
+    .filter(e => e.status === 'Agendado' && e.dataContato === hoje)
+    .sort((a, b) => (a.dataAgendamento || '').localeCompare(b.dataAgendamento || '') || (a.horario || '').localeCompare(b.horario || ''));
 }
 
 function renderAgendadosHoje() {
-  const painel = document.getElementById('painel-hoje-confirmar');
-  const contagem = document.getElementById('hoje-confirmar-contagem');
-  const lista = document.getElementById('lista-hoje-confirmar');
+  const painel = document.getElementById('painel-agendados-hoje');
+  const contagem = document.getElementById('agendados-hoje-contagem');
+  const lista = document.getElementById('lista-agendados-hoje');
+  const hoje = hojeStr();
   const agendadosHoje = entriesAgendadosHoje();
 
   if (agendadosHoje.length === 0) { painel.hidden = true; return; }
 
   painel.hidden = false;
   contagem.textContent = agendadosHoje.length;
-  lista.innerHTML = agendadosHoje.map(e => `
+  lista.innerHTML = agendadosHoje.map(e => {
+    const consultaHoje = e.dataAgendamento === hoje;
+    const quando = e.dataAgendamento
+      ? (consultaHoje ? 'Consulta hoje' : 'Consulta em ' + formatarData(e.dataAgendamento)) + (e.horario ? ' às ' + escapeHtml(e.horario) : '')
+      : 'Sem data de consulta definida';
+    return `
+    <div class="pendente-item">
+      <div class="pendente-info">
+        <b>${escapeHtml(e.nome || '(sem nome)')}</b> — ${telefoneClicavel(e.telefone)}${e.animal ? ' · ' + escapeHtml(e.animal) : ''}
+        <span>${quando}${e.clinica ? ' · ' + escapeHtml(e.clinica) : ''}</span>
+      </div>
+      <button type="button" class="btn-editar-pendente" data-id="${e.id}">Editar</button>
+    </div>
+  `;
+  }).join('');
+
+  lista.querySelectorAll('.btn-editar-pendente').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const entry = state.entries.find(e => e.id === btn.dataset.id);
+      if (entry) abrirModalEntry(entry);
+    });
+  });
+}
+
+// Quem TEM consulta marcada pra HOJE (não importa quando foi agendado) — ela
+// confirma aqui se o cliente realmente veio; confirmando, já marca Realizado
+function entriesConsultasHoje() {
+  const hoje = hojeStr();
+  return state.entries
+    .filter(e => e.status === 'Agendado' && e.dataAgendamento === hoje)
+    .sort((a, b) => (a.horario || '').localeCompare(b.horario || ''));
+}
+
+function renderConsultasHoje() {
+  const painel = document.getElementById('painel-consultas-hoje');
+  const contagem = document.getElementById('consultas-hoje-contagem');
+  const lista = document.getElementById('lista-consultas-hoje');
+  const consultasHoje = entriesConsultasHoje();
+
+  if (consultasHoje.length === 0) { painel.hidden = true; return; }
+
+  painel.hidden = false;
+  contagem.textContent = consultasHoje.length;
+  lista.innerHTML = consultasHoje.map(e => `
     <div class="pendente-item">
       <div class="pendente-info">
         <b>${escapeHtml(e.nome || '(sem nome)')}</b> — ${telefoneClicavel(e.telefone)}${e.animal ? ' · ' + escapeHtml(e.animal) : ''}
@@ -1886,11 +1934,12 @@ function renderNfCards(mesKey) {
 }
 
 // ---------- Filtros da tabela de NF ----------
-['nf-filtro-busca','nf-filtro-cidade'].forEach(id => {
+['nf-filtro-busca','nf-filtro-cidade','nf-filtro-nota'].forEach(id => {
   ['input','change'].forEach(evento => {
     document.getElementById(id).addEventListener(evento, () => {
       nfFiltros.busca = normalizarTexto(document.getElementById('nf-filtro-busca').value.trim());
       nfFiltros.cidade = document.getElementById('nf-filtro-cidade').value;
+      nfFiltros.querNf = document.getElementById('nf-filtro-nota').value;
       renderTabelaNf(mesKeyDe(nfCurrentDate));
     });
   });
@@ -1952,6 +2001,8 @@ function renderGrupoNf(idCorpo, idVazio, lista) {
 function renderTabelaNf(mesKey) {
   let lista = entriesNfDoMes(mesKey);
   if (nfFiltros.cidade) lista = lista.filter(e => e.cidade === nfFiltros.cidade);
+  if (nfFiltros.querNf === 'sim') lista = lista.filter(e => !!e.querNf);
+  if (nfFiltros.querNf === 'nao') lista = lista.filter(e => !e.querNf);
   if (nfFiltros.busca) {
     const q = nfFiltros.busca;
     const qDigitos = q.replace(/\D/g, '');
