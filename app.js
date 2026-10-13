@@ -1371,7 +1371,7 @@ function renderTabela(mesKey) {
       ${celObsClicavel(e.obs, '', 'Observação')}
       <td class="acoes">
         <button class="btn outline sm btn-editar">Editar</button>
-        ${e.status !== 'Desmarcou' ? '<button class="btn vermelho sm btn-desmarcar" title="Marcar como Desmarcou rapidinho">✕ Desmarcar</button>' : ''}
+        ${e.status === 'Agendado' ? '<button class="btn vermelho sm btn-desmarcar" title="Marcar como Desmarcou rapidinho">✕ Desmarcar</button>' : ''}
       </td>
     </tr>
   `;
