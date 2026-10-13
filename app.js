@@ -42,7 +42,8 @@ let state = {
   categorias: JSON.parse(JSON.stringify(CATEGORIAS_PADRAO)),
   metas: {},
   nf: { servicosSalvos: [] },
-  nfEntries: []
+  nfEntries: [],
+  linksUteis: []
 };
 let carregouDoc = false;
 let carregouEntries = false;
@@ -129,6 +130,7 @@ function iniciarEscuta() {
       state.categorias = d.categorias && Object.keys(d.categorias).length ? d.categorias : CATEGORIAS_PADRAO;
       ['clinicas','cidades','tipos','motivos'].forEach(k => { if (!Array.isArray(state.categorias[k])) state.categorias[k] = []; });
       state.metas = d.metas || {};
+      state.linksUteis = Array.isArray(d.linksUteis) ? d.linksUteis : [];
       carregouDoc = true;
       atualizarStatusSync(snap.metadata.hasPendingWrites);
       renderTudo();
@@ -215,6 +217,19 @@ function atualizarNf(id, dados) {
 function excluirNf(id) {
   return nfEntriesCol.doc(id).delete();
 }
+// Marca/desmarca "feito" com um clique só na tabela, sem abrir o formulário
+// inteiro — pra ela só confirmar que a nota foi emitida rapidinho
+function nfToggleFeito(entry) {
+  if (!entry) return;
+  const novoFeito = !entry.feito;
+  const dados = Object.assign({}, entry, {
+    feito: novoFeito,
+    dataNF: novoFeito ? (entry.dataNF || hojeStr()) : ''
+  });
+  atualizarNf(entry.id, dados)
+    .then(() => mostrarToast(novoFeito ? 'Nota marcada como feita' : 'Nota marcada como pendente'))
+    .catch(err => mostrarToast('Não foi possível salvar: ' + err.message));
+}
 function adicionarServico(valor) {
   return nfDocRef.update({ servicosSalvos: firebase.firestore.FieldValue.arrayUnion(valor) });
 }
@@ -236,6 +251,144 @@ function removerCategoria(chave, valor) {
 function salvarCampoMeta(mesKey, campo, valor) {
   return docRef.update({ ['metas.' + mesKey + '.' + campo]: valor });
 }
+
+// ---- Links úteis: botões de atalho que ela mesma cadastra na Visão Geral
+// (ex: planilha, WhatsApp da clínica, site) — lista pequena, salva inteira ----
+function salvarLinksUteis(lista) {
+  return docRef.update({ linksUteis: lista });
+}
+function normalizarUrl(url) {
+  url = (url || '').trim();
+  if (!url) return '';
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  return url;
+}
+
+let editingLinkIdx = null;
+function renderLinksUteis() {
+  const cont = document.getElementById('links-uteis-grid');
+  const vazio = document.getElementById('links-uteis-vazio');
+  if (!cont) return;
+  const lista = state.linksUteis || [];
+  vazio.hidden = lista.length !== 0;
+  cont.innerHTML = lista.map((l, i) => `
+    <div class="link-chip">
+      <a href="${escapeHtml(normalizarUrl(l.url))}" target="_blank" rel="noopener">${escapeHtml(l.nome||'Link')}</a>
+      <button type="button" class="link-acao link-editar" data-idx="${i}" title="Editar">&#9998;</button>
+      <button type="button" class="link-acao link-excluir" data-idx="${i}" title="Excluir">&times;</button>
+    </div>
+  `).join('');
+  cont.querySelectorAll('.link-editar').forEach(btn => {
+    btn.addEventListener('click', () => abrirModalLink(Number(btn.dataset.idx)));
+  });
+  cont.querySelectorAll('.link-excluir').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.idx);
+      if (!confirm('Excluir este link?')) return;
+      const nova = state.linksUteis.slice();
+      nova.splice(idx, 1);
+      salvarLinksUteis(nova).catch(err => mostrarToast('Não foi possível excluir: ' + err.message));
+    });
+  });
+}
+function abrirModalLink(idx) {
+  editingLinkIdx = (idx === null || idx === undefined) ? null : idx;
+  const l = editingLinkIdx !== null ? state.linksUteis[editingLinkIdx] : null;
+  document.getElementById('link-titulo').textContent = l ? 'Editar link' : 'Novo link';
+  document.getElementById('link-f-nome').value = l ? l.nome||'' : '';
+  document.getElementById('link-f-url').value = l ? l.url||'' : '';
+  document.getElementById('btn-excluir-link').hidden = !l;
+  document.getElementById('modal-link').hidden = false;
+}
+function fecharModalLink() { document.getElementById('modal-link').hidden = true; }
+document.getElementById('btn-add-link').addEventListener('click', () => abrirModalLink(null));
+document.getElementById('fechar-modal-link').addEventListener('click', fecharModalLink);
+document.getElementById('btn-cancelar-link').addEventListener('click', fecharModalLink);
+document.getElementById('form-link').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const nome = document.getElementById('link-f-nome').value.trim();
+  const url = normalizarUrl(document.getElementById('link-f-url').value);
+  if (!nome || !url) return;
+  const nova = (state.linksUteis||[]).slice();
+  if (editingLinkIdx !== null) nova[editingLinkIdx] = { nome, url };
+  else nova.push({ nome, url });
+  salvarLinksUteis(nova).then(() => { mostrarToast('Link salvo'); fecharModalLink(); })
+    .catch(err => mostrarToast('Não foi possível salvar: ' + err.message));
+});
+document.getElementById('btn-excluir-link').addEventListener('click', () => {
+  if (editingLinkIdx === null) return;
+  if (!confirm('Excluir este link?')) return;
+  const nova = state.linksUteis.slice();
+  nova.splice(editingLinkIdx, 1);
+  salvarLinksUteis(nova).then(() => { mostrarToast('Link excluído'); fecharModalLink(); })
+    .catch(err => mostrarToast('Não foi possível excluir: ' + err.message));
+});
+
+// ---------- Pesquisa universal: acha em Agendamentos e Notas Fiscais juntos ----------
+function buscaUniversal(query) {
+  const q = normalizarTexto(query.trim());
+  if (q.length < 2) return [];
+  const qDigitos = q.replace(/\D/g, '');
+  const bate = (e, campos) => campos.some(c => normalizarTexto(e[c]).includes(q)) ||
+    (qDigitos.length >= 3 && normalizarTelefone(e.telefone).includes(qDigitos));
+
+  const resAgendamentos = state.entries
+    .filter(e => bate(e, ['nome','animal','telefone','clinica','cidade','motivo','obs']))
+    .slice(0, 8)
+    .map(e => ({ tipo: 'agendamento', entry: e, titulo: e.nome || '(sem nome)', det: [e.animal, e.clinica, formatarData(e.dataContato)].filter(Boolean).join(' · ') }));
+
+  const resNf = state.nfEntries
+    .filter(e => bate(e, ['cliente','animal','telefone','nomeNf','cpf','obs']))
+    .slice(0, 8)
+    .map(e => ({ tipo: 'nf', entry: e, titulo: e.cliente || '(sem nome)', det: ['NF', formatarData(e.dataPagamento), 'R$ ' + formatarMoeda(e.valorNota)].filter(Boolean).join(' · ') }));
+
+  return resAgendamentos.concat(resNf).slice(0, 14);
+}
+function renderResultadosPesquisa(query) {
+  const cont = document.getElementById('pesquisa-universal-resultados');
+  const resultados = buscaUniversal(query);
+  if (!query.trim()) { cont.innerHTML = '<div class="pesquisa-vazia">Digite pra buscar em agendamentos e notas fiscais.</div>'; return; }
+  if (!resultados.length) { cont.innerHTML = '<div class="pesquisa-vazia">Nada encontrado.</div>'; return; }
+  cont.innerHTML = resultados.map((r, i) => `
+    <button type="button" class="resultado-pesquisa" data-idx="${i}">
+      <span class="rp-tipo ${r.tipo}">${r.tipo === 'nf' ? 'NF' : 'Agenda'}</span>
+      <span class="rp-corpo"><span class="rp-nome">${escapeHtml(r.titulo)}</span><br><span class="rp-det">${escapeHtml(r.det)}</span></span>
+    </button>
+  `).join('');
+  cont.querySelectorAll('.resultado-pesquisa').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const r = resultados[Number(btn.dataset.idx)];
+      fecharModalPesquisa();
+      if (r.tipo === 'agendamento') {
+        abaAtiva = 'agendamentos';
+        renderAba();
+        abrirModalEntry(r.entry);
+      } else {
+        abaAtiva = 'notas';
+        renderAba();
+        abrirModalNf(r.entry);
+      }
+    });
+  });
+}
+function abrirModalPesquisa() {
+  document.getElementById('modal-pesquisa').hidden = false;
+  const input = document.getElementById('pesquisa-universal-input');
+  input.value = '';
+  renderResultadosPesquisa('');
+  setTimeout(() => input.focus(), 50);
+}
+function fecharModalPesquisa() { document.getElementById('modal-pesquisa').hidden = true; }
+document.getElementById('btn-pesquisa-universal').addEventListener('click', abrirModalPesquisa);
+document.getElementById('fechar-modal-pesquisa').addEventListener('click', fecharModalPesquisa);
+document.getElementById('pesquisa-universal-input').addEventListener('input', ev => renderResultadosPesquisa(ev.target.value));
+document.addEventListener('keydown', ev => {
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k') {
+    ev.preventDefault();
+    abrirModalPesquisa();
+  }
+  if (ev.key === 'Escape' && !document.getElementById('modal-pesquisa').hidden) fecharModalPesquisa();
+});
 
 function mostrarToast(msg) {
   const t = document.getElementById('toast');
@@ -268,6 +421,11 @@ function semanaDoMes(str) {
   return Math.min(5, Math.ceil(d.getDate() / 7));
 }
 function normalizarTelefone(t) { return (t || '').replace(/\D/g, ''); }
+// Busca "inteligente": ignora acento e maiúscula/minúscula, então "joão" acha
+// "joao" e vice-versa — usada em todas as buscas de texto do app
+function normalizarTexto(t) {
+  return (t || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
 
 // ============================================================
 // CÁLCULOS — resumo do mês
@@ -363,6 +521,7 @@ function renderTudo() {
   if (!carregouDoc || !carregouEntries) return;
   popularSelects();
   renderAba();
+  renderLinksUteis();
   atualizarBadgeAtrasados();
   if (!document.getElementById('modal-entry').hidden) atualizarPainelHistorico();
   if (!document.getElementById('modal-categorias').hidden) renderCategoriasPainel();
@@ -390,10 +549,11 @@ function atualizarBadgeAtrasados() {
 
 function renderAba() {
   document.getElementById('aba-agendamentos').hidden = abaAtiva !== 'agendamentos';
+  document.getElementById('aba-metas').hidden = abaAtiva !== 'metas';
   document.getElementById('aba-notas').hidden = abaAtiva !== 'notas';
   document.getElementById('aba-anual').hidden = abaAtiva !== 'anual';
   document.querySelectorAll('nav.abas button').forEach(b => b.classList.toggle('ativa', b.dataset.aba === abaAtiva));
-  if (abaAtiva === 'agendamentos') renderAgendamentos();
+  if (abaAtiva === 'agendamentos' || abaAtiva === 'metas') renderAgendamentos();
   else if (abaAtiva === 'notas') { if (carregouNfDoc && carregouNfEntries) renderNotas(); }
   else renderAnual();
 }
@@ -401,6 +561,13 @@ function renderAba() {
 document.querySelectorAll('nav.abas button').forEach(btn => {
   btn.addEventListener('click', () => { abaAtiva = btn.dataset.aba; renderAba(); });
 });
+
+// Contexto "Hoje é ..." no topo da barra lateral
+(function () {
+  const hoje = new Date();
+  const el = document.getElementById('abas-data-hoje');
+  if (el) el.textContent = hoje.getDate() + ' de ' + MESES[hoje.getMonth()].toLowerCase();
+})();
 
 // ---------- popular <select> de filtros e formulário ----------
 function popularSelects() {
@@ -557,9 +724,14 @@ function rotuloMes(date) { return MESES[date.getMonth()] + ' ' + date.getFullYea
 document.getElementById('mes-anterior').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth()-1); renderAgendamentos(); });
 document.getElementById('mes-proximo').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth()+1); renderAgendamentos(); });
 document.getElementById('mes-hoje').addEventListener('click', () => { currentDate = new Date(); renderAgendamentos(); });
+document.getElementById('metas-mes-anterior').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth()-1); renderAgendamentos(); });
+document.getElementById('metas-mes-proximo').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth()+1); renderAgendamentos(); });
+document.getElementById('metas-mes-hoje').addEventListener('click', () => { currentDate = new Date(); renderAgendamentos(); });
 
 function renderAgendamentos() {
   document.getElementById('mes-rotulo').textContent = rotuloMes(currentDate);
+  const rotuloMetas = document.getElementById('metas-mes-rotulo');
+  if (rotuloMetas) rotuloMetas.textContent = rotuloMes(currentDate);
   const mesKey = mesKeyDe(currentDate);
   const stats = statsDoMes(mesKey);
 
@@ -788,7 +960,7 @@ function atualizarBotaoLimparFiltros() {
 
 ['filtro-busca','filtro-status','filtro-tipo','filtro-cidade','filtro-clinica','filtro-motivo'].forEach(id => {
   document.getElementById(id).addEventListener('input', () => {
-    filtros.busca = document.getElementById('filtro-busca').value.trim().toLowerCase();
+    filtros.busca = normalizarTexto(document.getElementById('filtro-busca').value.trim());
     filtros.status = document.getElementById('filtro-status').value;
     filtros.tipo = document.getElementById('filtro-tipo').value;
     filtros.cidade = document.getElementById('filtro-cidade').value;
@@ -833,7 +1005,6 @@ function configurarPainelRecolhivel(idBotao, idConteudo, chave) {
     aplicar();
   });
 }
-configurarPainelRecolhivel('toggle-metas', 'metas-grid', 'agendaOlhatta_colapsar_metas');
 configurarPainelRecolhivel('toggle-semanas', 'semanas-wrap', 'agendaOlhatta_colapsar_semanas');
 
 document.querySelectorAll('#painel-tabela th.th-ordenavel').forEach(th => {
@@ -873,18 +1044,20 @@ function renderTabela(mesKey) {
   if (filtros.motivo) lista = lista.filter(e => e.motivo === filtros.motivo);
   if (filtros.busca) {
     const q = filtros.busca;
+    const qDigitos = q.replace(/\D/g, '');
     lista = lista.filter(e =>
-      (e.nome||'').toLowerCase().includes(q) ||
-      (e.animal||'').toLowerCase().includes(q) ||
-      (e.telefone||'').toLowerCase().includes(q) ||
-      (e.clinica||'').toLowerCase().includes(q) ||
-      (e.cidade||'').toLowerCase().includes(q) ||
-      (e.tipo||'').toLowerCase().includes(q) ||
-      (e.status||'').toLowerCase().includes(q) ||
-      (e.indicacao||'').toLowerCase().includes(q) ||
-      (e.motivo||'').toLowerCase().includes(q) ||
-      (e.detalheMotivo||'').toLowerCase().includes(q) ||
-      (e.obs||'').toLowerCase().includes(q) ||
+      normalizarTexto(e.nome).includes(q) ||
+      normalizarTexto(e.animal).includes(q) ||
+      normalizarTexto(e.telefone).includes(q) ||
+      (qDigitos.length >= 3 && normalizarTelefone(e.telefone).includes(qDigitos)) ||
+      normalizarTexto(e.clinica).includes(q) ||
+      normalizarTexto(e.cidade).includes(q) ||
+      normalizarTexto(e.tipo).includes(q) ||
+      normalizarTexto(e.status).includes(q) ||
+      normalizarTexto(e.indicacao).includes(q) ||
+      normalizarTexto(e.motivo).includes(q) ||
+      normalizarTexto(e.detalheMotivo).includes(q) ||
+      normalizarTexto(e.obs).includes(q) ||
       formatarData(e.dataContato).includes(q) ||
       formatarData(e.dataAgendamento).includes(q)
     );
@@ -938,7 +1111,7 @@ function renderTabela(mesKey) {
     const jaAgendado = STATUS_AGENDADOS.includes(e.status);
     return `
     <tr data-id="${e.id}" class="${ehHoje ? 'linha-hoje' : ''}">
-      <td>${escapeHtml(e.nome||'')}${desmarques >= 2 ? `<span class="badge-alerta">já desmarcou ${desmarques}x</span>` : ''}${e.mesmoContatoOutroAnimal ? `<span class="badge-mesmo-contato">mesmo telefonema</span>` : ''}</td>
+      <td><span class="avatar-mini">${escapeHtml(iniciais(e.nome))}</span>${escapeHtml(e.nome||'')}${desmarques >= 2 ? `<span class="badge-alerta">já desmarcou ${desmarques}x</span>` : ''}${e.mesmoContatoOutroAnimal ? `<span class="badge-mesmo-contato">mesmo telefonema</span>` : ''}</td>
       <td>${telefoneClicavel(e.telefone)}</td>
       <td>${escapeHtml(e.animal||'')}</td>
       <td>${escapeHtml(e.clinica||'')}</td>
@@ -1029,6 +1202,14 @@ document.getElementById('modal-texto').addEventListener('click', ev => {
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Iniciais pro circulinho colorido do nome na tabela (ex: "Maria Tutora" -> "MT")
+function iniciais(nome) {
+  const partes = (nome || '').trim().split(/\s+/).filter(Boolean);
+  if (!partes.length) return '?';
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
 }
 
 // Telefone clicável: abre o WhatsApp já na conversa com esse número, sem
@@ -1381,7 +1562,7 @@ function renderNfCards(mesKey) {
 ['nf-filtro-busca','nf-filtro-situacao'].forEach(id => {
   ['input','change'].forEach(evento => {
     document.getElementById(id).addEventListener(evento, () => {
-      nfFiltros.busca = document.getElementById('nf-filtro-busca').value.trim().toLowerCase();
+      nfFiltros.busca = normalizarTexto(document.getElementById('nf-filtro-busca').value.trim());
       nfFiltros.situacao = document.getElementById('nf-filtro-situacao').value;
       renderTabelaNf(mesKeyDe(nfCurrentDate));
     });
@@ -1396,11 +1577,11 @@ function renderTabelaNf(mesKey) {
     const q = nfFiltros.busca;
     const qDigitos = q.replace(/\D/g, '');
     lista = lista.filter(e =>
-      (e.cliente||'').toLowerCase().includes(q) ||
-      (e.animal||'').toLowerCase().includes(q) ||
-      (e.telefone||'').toLowerCase().includes(q) ||
-      (e.nomeNf||'').toLowerCase().includes(q) ||
-      (e.cpf||'').toLowerCase().includes(q) ||
+      normalizarTexto(e.cliente).includes(q) ||
+      normalizarTexto(e.animal).includes(q) ||
+      normalizarTexto(e.telefone).includes(q) ||
+      normalizarTexto(e.nomeNf).includes(q) ||
+      normalizarTexto(e.cpf).includes(q) ||
       (qDigitos.length >= 3 && normalizarTelefone(e.telefone).includes(qDigitos))
     );
   }
@@ -1416,7 +1597,7 @@ function renderTabelaNf(mesKey) {
     const servicosTxt = (e.servicos||[]).join(', ');
     return `
     <tr data-id="${e.id}">
-      <td>${escapeHtml(e.cliente||'')}</td>
+      <td><span class="avatar-mini">${escapeHtml(iniciais(e.cliente))}</span>${escapeHtml(e.cliente||'')}</td>
       <td>${escapeHtml(e.animal||'')}</td>
       <td>${telefoneClicavel(e.telefone)}</td>
       <td>${escapeHtml(e.cidade||'')}</td>
@@ -1426,11 +1607,18 @@ function renderTabelaNf(mesKey) {
       <td>R$ ${formatarMoeda(e.cobrado)}</td>
       <td>R$ ${formatarMoeda(e.valorNota)}</td>
       <td>${e.querNf ? '' : '<span class="tag-sem-nf">Não quer</span>'}</td>
-      <td>${e.querNf ? `<span class="pill ${e.feito ? 'feito' : 'pendente'}">${e.feito ? 'Feito' : 'Pendente'}</span>` : '—'}</td>
+      <td>${e.querNf ? `<button type="button" class="pill-toggle pill ${e.feito ? 'feito' : 'pendente'} btn-toggle-feito" title="Clique pra marcar ${e.feito ? 'como pendente' : 'como feito'}">${e.feito ? '✓ Feito' : 'Pendente'}</button>` : '—'}</td>
       <td class="acoes"><button class="btn outline sm btn-editar-nf">Editar</button></td>
     </tr>
   `;
   }).join('');
+
+  corpo.querySelectorAll('.btn-toggle-feito').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('tr').dataset.id;
+      nfToggleFeito(state.nfEntries.find(e => e.id === id));
+    });
+  });
 
   corpo.querySelectorAll('.btn-editar-nf').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1468,9 +1656,14 @@ function abrirModalNf(entry) {
   document.getElementById('nf-f-numero').value = entry ? entry.numero||'' : '';
   document.getElementById('nf-f-rua').value = entry ? entry.rua||'' : '';
   document.getElementById('nf-f-bairro').value = entry ? entry.bairro||'' : '';
+  document.getElementById('nf-f-complemento').value = entry ? entry.complemento||'' : '';
+  document.getElementById('nf-f-cidade-end').value = entry ? entry.cidadeEndereco||'' : '';
+  document.getElementById('nf-f-estado').value = entry ? entry.estado||'' : '';
   document.getElementById('nf-f-email').value = entry ? entry.email||'' : '';
   document.getElementById('nf-f-obs').value = entry ? entry.obs||'' : '';
   document.getElementById('nf-f-feito').checked = entry ? !!entry.feito : false;
+  document.getElementById('nf-campo-dataemissao').hidden = !(entry && entry.dataNF);
+  document.getElementById('nf-f-dataemissao').value = entry && entry.dataNF ? formatarData(entry.dataNF) : '';
 
   nfServicosSelecionados = entry && Array.isArray(entry.servicos) ? entry.servicos.slice() : [];
   // em edição, o nome já foi definido/conferido antes — não sobrescreve mais
@@ -1538,6 +1731,7 @@ function nfAtualizarVisibilidadeDadosNf() {
   const quer = document.getElementById('nf-f-quer-nf').checked;
   document.getElementById('nf-dados-nf-bloco').hidden = !quer;
   document.getElementById('nf-campo-feito').hidden = !editingNfId || !quer;
+  if (!quer) document.getElementById('nf-campo-dataemissao').hidden = true;
 }
 document.getElementById('nf-f-quer-nf').addEventListener('change', nfAtualizarVisibilidadeDadosNf);
 
@@ -1564,6 +1758,7 @@ function maskCep(v) {
   return v;
 }
 document.getElementById('nf-f-cep').addEventListener('input', ev => { ev.target.value = maskCep(ev.target.value); });
+document.getElementById('nf-f-estado').addEventListener('input', ev => { ev.target.value = ev.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2); });
 
 // Busca o endereço automaticamente pelo CEP (ViaCEP) — se não tiver internet ou
 // o CEP for inválido, simplesmente não preenche nada; ela completa na mão
@@ -1576,7 +1771,8 @@ document.getElementById('nf-f-cep').addEventListener('blur', () => {
       if (d.erro) { mostrarToast('CEP não encontrado'); return; }
       if (d.logradouro && !document.getElementById('nf-f-rua').value.trim()) document.getElementById('nf-f-rua').value = d.logradouro;
       if (d.bairro && !document.getElementById('nf-f-bairro').value.trim()) document.getElementById('nf-f-bairro').value = d.bairro;
-      if (d.localidade && state.categorias.cidades.includes(d.localidade)) document.getElementById('nf-f-cidade').value = d.localidade;
+      if (d.localidade && !document.getElementById('nf-f-cidade-end').value.trim()) document.getElementById('nf-f-cidade-end').value = d.localidade;
+      if (d.uf && !document.getElementById('nf-f-estado').value.trim()) document.getElementById('nf-f-estado').value = d.uf;
     })
     .catch(() => { /* sem internet — segue sem preencher automaticamente */ });
 });
@@ -1609,7 +1805,10 @@ function autopreencherNf() {
   if (!document.getElementById('nf-f-cep').value.trim()) document.getElementById('nf-f-cep').value = achado.cep || '';
   if (!document.getElementById('nf-f-numero').value.trim()) document.getElementById('nf-f-numero').value = achado.numero || '';
   if (!document.getElementById('nf-f-rua').value.trim()) document.getElementById('nf-f-rua').value = achado.rua || '';
+  if (!document.getElementById('nf-f-complemento').value.trim()) document.getElementById('nf-f-complemento').value = achado.complemento || '';
   if (!document.getElementById('nf-f-bairro').value.trim()) document.getElementById('nf-f-bairro').value = achado.bairro || '';
+  if (!document.getElementById('nf-f-cidade-end').value.trim()) document.getElementById('nf-f-cidade-end').value = achado.cidadeEndereco || '';
+  if (!document.getElementById('nf-f-estado').value.trim()) document.getElementById('nf-f-estado').value = achado.estado || '';
   if (!document.getElementById('nf-f-email').value.trim()) document.getElementById('nf-f-email').value = achado.email || '';
   mostrarToast('Dados preenchidos a partir de um lançamento anterior');
 }
@@ -1654,7 +1853,10 @@ document.getElementById('form-nf').addEventListener('submit', ev => {
     cep: querNf ? document.getElementById('nf-f-cep').value.trim() : '',
     numero: querNf ? document.getElementById('nf-f-numero').value.trim() : '',
     rua: querNf ? document.getElementById('nf-f-rua').value.trim() : '',
+    complemento: querNf ? document.getElementById('nf-f-complemento').value.trim() : '',
     bairro: querNf ? document.getElementById('nf-f-bairro').value.trim() : '',
+    cidadeEndereco: querNf ? document.getElementById('nf-f-cidade-end').value.trim() : '',
+    estado: querNf ? document.getElementById('nf-f-estado').value.trim().toUpperCase() : '',
     email: querNf ? document.getElementById('nf-f-email').value.trim() : '',
     obs: document.getElementById('nf-f-obs').value.trim(),
     feito,
