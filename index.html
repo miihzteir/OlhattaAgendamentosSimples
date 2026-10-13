@@ -66,30 +66,21 @@
 
   /* ---------- APP SHELL ---------- */
   #app{min-height:100vh;display:none;}
-  header.topo{background:linear-gradient(120deg,var(--verde-pinho) 0%,var(--verde-pinho-escuro) 100%);color:var(--creme);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;box-shadow:var(--sombra);position:sticky;top:0;z-index:20;overflow:hidden;}
-  header.topo::before{content:'';position:absolute;top:-60px;right:8%;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(134,173,118,.45),transparent 70%);pointer-events:none;}
-  header.topo::after{content:'';position:absolute;bottom:-70px;left:18%;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(155,192,143,.35),transparent 70%);pointer-events:none;}
-  header.topo > *{position:relative;z-index:1;}
-  .topo-marca{display:flex;align-items:center;gap:10px;}
-  .topo-marca img{width:38px;height:38px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.18);}
-  .topo-marca strong{font-family:'Quicksand',sans-serif;font-size:18px;font-weight:700;letter-spacing:.2px;}
-  .topo-marca span{display:block;font-size:11px;color:rgba(255,255,255,.8);font-weight:500;}
-  .topo-acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-  .topo-acoes .email{font-size:12px;color:var(--marrom-claro);margin-right:6px;}
-  .sync-status{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;}
-  .sync-status::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;}
-  .sync-status.ok{color:#D7F3E6;background:rgba(31,122,66,.3);}
-  .sync-status.pendente{color:var(--marrom-claro);background:rgba(86,119,76,.28);}
-  .sync-status.erro{color:#FAD5D7;background:rgba(209,85,92,.32);}
-  .icon-btn{width:36px;height:36px;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:var(--creme);display:flex;align-items:center;justify-content:center;font-size:16px;transition:.15s;}
-  .icon-btn:hover{background:rgba(255,255,255,.2);}
-  .btn-sair{padding:8px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:transparent;color:var(--creme);font-size:13px;font-weight:600;}
-  .btn-sair:hover{background:rgba(255,255,255,.12);}
 
-  .layout-app{display:flex;align-items:flex-start;max-width:1560px;margin:0 auto;}
-  nav.abas{display:flex;flex-direction:column;gap:6px;padding:20px 14px;background:var(--branco);border-right:1px solid var(--borda);position:sticky;top:66px;z-index:19;width:228px;flex-shrink:0;align-self:flex-start;height:calc(100vh - 66px);overflow-y:auto;}
-  .abas-contexto{font-family:'Nunito',sans-serif;font-size:11.5px;color:var(--texto-claro);padding:4px 14px 14px;}
+  .layout-app{display:block;}
+
+  /* Tudo (marca, abas, ações de conta) mora na barra lateral agora — sem
+     cabeçalho separado em cima, pra ficar tudo junto num lugar só.
+     Fixa na tela (não rola com o conteúdo) e ocupa a altura toda do dispositivo. */
+  .sidebar{display:flex;flex-direction:column;background:var(--branco);border-right:1px solid var(--borda);position:fixed;top:0;left:0;z-index:20;width:228px;height:100vh;height:100dvh;overflow-y:auto;}
+  .sidebar-marca{display:flex;align-items:center;gap:10px;padding:18px 16px 14px;border-bottom:1px solid var(--borda);flex-shrink:0;}
+  .sidebar-marca img{width:34px;height:34px;border-radius:10px;box-shadow:0 4px 12px rgba(138,98,64,.25);flex-shrink:0;}
+  .sidebar-marca strong{font-family:'Quicksand',sans-serif;font-size:15px;font-weight:700;letter-spacing:.1px;color:var(--verde-pinho-escuro);display:block;}
+  .sidebar-marca span{display:block;font-size:10.5px;color:var(--texto-claro);font-weight:500;}
+
+  .abas-contexto{font-family:'Nunito',sans-serif;font-size:11.5px;color:var(--texto-claro);padding:12px 16px 4px;flex-shrink:0;}
   .abas-contexto strong{color:var(--verde-pinho-escuro);font-weight:700;}
+  nav.abas{display:flex;flex-direction:column;gap:6px;padding:10px 14px;flex:1;}
   nav.abas button{display:flex;align-items:center;gap:10px;font-family:'Quicksand',sans-serif;padding:11px 16px;border:none;border-radius:14px;background:transparent;font-size:13.5px;font-weight:600;color:var(--texto-claro);white-space:nowrap;transition:.15s;text-align:left;width:100%;}
   nav.abas button:hover{color:var(--verde-pinho);background:var(--creme-escuro);}
   nav.abas button.ativa{color:#fff;background:linear-gradient(120deg,var(--verde-pinho),var(--verde-pinho-escuro));box-shadow:0 6px 16px rgba(138,98,64,.35);}
@@ -100,7 +91,23 @@
   .tel-link{color:var(--verde-pinho);font-weight:600;text-decoration:underline dotted;text-decoration-color:var(--marrom-claro);text-underline-offset:2px;}
   .tel-link:hover{color:var(--verde-pinho-escuro);}
 
-  main{flex:1;min-width:0;padding:22px 24px 60px;}
+  /* rodapé da barra lateral: status de sincronização, atalhos (pesquisa,
+     categorias, atualizar) e conta (e-mail + sair) */
+  .sidebar-rodape{margin-top:auto;border-top:1px solid var(--borda);padding:14px 16px;display:flex;flex-direction:column;gap:10px;flex-shrink:0;}
+  .sync-status{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:5px;align-self:flex-start;}
+  .sync-status::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;}
+  .sync-status.ok{color:var(--verde-ok);background:var(--verde-ok-claro);}
+  .sync-status.pendente{color:var(--marrom-escuro);background:var(--marrom-claro);}
+  .sync-status.erro{color:var(--vermelho);background:var(--vermelho-claro);}
+  .sidebar-rodape-acoes{display:flex;gap:8px;}
+  .icon-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--borda);background:var(--creme-escuro);color:var(--verde-pinho-escuro);display:flex;align-items:center;justify-content:center;font-size:15px;transition:.15s;}
+  .icon-btn:hover{background:var(--marrom-claro);}
+  .sidebar-rodape-usuario{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .sidebar-rodape-usuario .email{font-size:11px;color:var(--texto-claro);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+  .btn-sair{padding:6px 13px;border-radius:9px;border:1px solid var(--borda);background:transparent;color:var(--texto);font-size:12px;font-weight:700;flex-shrink:0;}
+  .btn-sair:hover{background:var(--vermelho-claro);color:var(--vermelho);border-color:var(--vermelho-claro);}
+
+  main{margin-left:228px;max-width:1560px;min-width:0;padding:22px 24px 60px;}
 
   /* ---------- NAVEGADOR DE MES ---------- */
   .topo-aba{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:20px;position:relative;}
@@ -113,11 +120,14 @@
   @media (max-width:760px){
     .topo-aba{flex-direction:column;align-items:stretch;}
     .btn-novo-destaque{position:static;transform:none;width:100%;text-align:center;order:2;}
-    .layout-app{flex-direction:column;align-items:stretch;}
-    nav.abas{flex-direction:row;width:100%;height:auto;position:sticky;top:60px;border-right:none;border-bottom:1px solid var(--borda);padding:10px 14px;overflow-x:auto;gap:8px;}
+    .sidebar{position:sticky;top:0;left:auto;width:100%;height:auto;flex-direction:column;border-right:none;border-bottom:1px solid var(--borda);overflow-y:visible;}
+    .sidebar-marca{padding:10px 14px;border-bottom:none;}
     .abas-contexto{display:none;}
+    nav.abas{flex-direction:row;padding:0 14px 10px;overflow-x:auto;gap:8px;flex:none;}
     nav.abas button{width:auto;border-radius:999px;padding:9px 16px;}
-    main{padding:18px 16px 60px;}
+    .sidebar-rodape{flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap;border-top:1px solid var(--borda);padding:10px 14px;margin-top:0;gap:8px;}
+    .sidebar-rodape-usuario{order:3;width:100%;justify-content:space-between;}
+    main{margin-left:0;max-width:none;padding:18px 16px 60px;}
   }
 
   /* ---------- CHIPS DE STATUS (atalho de filtro) ---------- */
@@ -192,8 +202,9 @@
   .resultado-pesquisa .rp-det{font-size:11.5px;color:var(--texto-claro);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .pesquisa-vazia{text-align:center;color:var(--texto-claro);font-size:13px;padding:24px 10px;}
 
-  #pendentes-contagem{color:var(--texto-claro);font-size:14px;font-weight:500;}
-  #lista-pendentes{display:flex;flex-direction:column;gap:8px;}
+  #pendentes-contagem, #hoje-confirmar-contagem{color:var(--texto-claro);font-size:14px;font-weight:500;}
+  #lista-pendentes, #lista-hoje-confirmar{display:flex;flex-direction:column;gap:8px;}
+  .btn-confirmar-hoje{flex-shrink:0;}
   .pendente-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border-radius:10px;background:var(--creme-escuro);font-size:13px;flex-wrap:wrap;}
   .pendente-info b{color:var(--marrom-escuro);}
   .pendente-info span{display:block;color:var(--texto-claro);font-size:12px;margin-top:2px;}
@@ -242,6 +253,8 @@
   .btn.vermelho{background:var(--vermelho-claro);color:var(--vermelho);}
   .btn.vermelho:hover{background:#F9D3D4;}
   .btn.sm{padding:6px 13px;font-size:12px;}
+  .chip-periodo.ativo{background:var(--verde-pinho);color:var(--creme);border-color:var(--verde-pinho);}
+  .chip-periodo.ativo:hover{background:var(--verde-pinho-escuro);color:var(--creme);}
 
   .tabela-wrap{overflow-x:auto;border:1px solid var(--borda);border-radius:var(--raio);background:var(--branco);cursor:grab;}
   .tabela-wrap.arrastando{cursor:grabbing;user-select:none;}
@@ -331,6 +344,7 @@
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
   .chip{display:flex;align-items:center;gap:6px;background:var(--creme-escuro);border:1px solid var(--borda);border-radius:20px;padding:5px 6px 5px 12px;font-size:12px;}
   .chip button{background:none;border:none;color:var(--vermelho);font-size:13px;line-height:1;padding:2px;}
+  .chip button.btn-editar-servico{color:var(--verde-pinho);font-size:12px;}
   .cat-add{display:flex;gap:6px;}
   .cat-add input{flex:1;padding:7px 9px;border:1px solid var(--borda);border-radius:7px;font-size:12px;}
 
@@ -342,6 +356,28 @@
   #tabela-anual-corpo td.mes-nome{text-transform:capitalize;font-weight:700;color:var(--texto);}
   #tabela-anual-corpo td.maior-valor{font-weight:800;color:var(--verde-pinho);position:relative;}
   #tabela-anual-corpo td.maior-valor::after{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--marrom-claro);margin-left:7px;vertical-align:middle;}
+
+  /* gráfico do comparativo anual */
+  .anual-legenda{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:10px;font-size:12.5px;color:var(--texto-claro);}
+  .legenda-item{display:flex;align-items:center;gap:7px;}
+  .legenda-linha{width:16px;height:4px;border-radius:4px;display:inline-block;flex-shrink:0;}
+  .anual-grafico-wrap{position:relative;}
+  #grafico-anual{width:100%;height:auto;display:block;cursor:crosshair;}
+  .anual-tooltip{display:none;position:absolute;top:0;width:170px;background:var(--branco);border:1px solid var(--borda);border-radius:10px;padding:8px 10px;font-size:11.5px;color:var(--texto);box-shadow:0 10px 24px rgba(0,0,0,.16);pointer-events:none;z-index:3;}
+  .anual-tooltip b{text-transform:capitalize;}
+  .anual-tooltip-linha{display:flex;align-items:center;gap:6px;margin-top:4px;}
+  .anual-tooltip-linha .legenda-linha{width:12px;}
+
+  /* NF: tag "Enviar" (cliente quer receber a nota) */
+  .tag-sim-nf{display:inline-block;padding:2px 8px;border-radius:8px;font-size:10.5px;font-weight:700;color:var(--marrom-escuro);background:var(--marrom-claro);white-space:nowrap;}
+
+  /* NF: duas tabelonas separadas (pendentes / feitas), pra não misturar visualmente */
+  .nf-grupo h2{display:flex;align-items:center;gap:8px;}
+  .badge-contagem{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;border-radius:999px;font-size:12px;font-weight:800;}
+  .nf-grupo-pendentes h2{color:#8F6307;}
+  .nf-grupo-pendentes .badge-contagem{background:#FFF3DC;color:#8F6307;}
+  .nf-grupo-feitas h2{color:var(--verde-ok);}
+  .nf-grupo-feitas .badge-contagem{background:var(--verde-ok-claro);color:var(--verde-ok);}
 
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--verde-pinho);color:var(--creme);padding:12px 20px;border-radius:10px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:100;opacity:0;pointer-events:none;transition:.25s;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
@@ -385,46 +421,71 @@
 
 <!-- ===================== APP ===================== -->
 <div id="app">
-  <header class="topo">
-    <div class="topo-marca">
+  <div class="layout-app">
+  <aside class="sidebar">
+    <div class="sidebar-marca">
       <img src="icons/icon-192.png?v=6" alt="">
       <div><strong>Agenda Olhatta</strong><span>Contatos &amp; Agendamentos</span></div>
     </div>
-    <div class="topo-acoes">
-      <span class="sync-status ok" id="sync-status">Sincronizado</span>
-      <span class="email" id="user-email"></span>
-      <button class="icon-btn" id="btn-pesquisa-universal" title="Pesquisar em tudo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-      <button class="icon-btn" id="btn-categorias" title="Categorias">&#9881;</button>
-      <button class="icon-btn" id="btn-atualizar" title="Atualizar app">&#8635;</button>
-      <button class="btn-sair" id="btn-logout">Sair</button>
-    </div>
-  </header>
 
-  <div class="layout-app">
-  <nav class="abas">
     <div class="abas-contexto" id="abas-contexto">Hoje é <strong id="abas-data-hoje">—</strong></div>
-    <button class="ativa" data-aba="agendamentos">
-      <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="16" rx="3.5" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 10h17" stroke="currentColor" stroke-width="1.8"/><path d="M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      <span>Agendamentos</span>
-      <span class="badge-aba" id="badge-atrasados" hidden></span>
-    </button>
-    <button data-aba="metas">
-      <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>
-      <span>Metas</span>
-    </button>
-    <button data-aba="anual">
-      <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 20V11M12 20V4M20 20v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 20.5h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      <span>Comparativo Anual</span>
-    </button>
-    <button data-aba="notas">
-      <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      <span>Notas Fiscais</span>
-    </button>
-  </nav>
+
+    <nav class="abas">
+      <button class="ativa" data-aba="inicio">
+        <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3.5 10.5 12 4l8.5 6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 9v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Início</span>
+      </button>
+      <button data-aba="agendamentos">
+        <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="16" rx="3.5" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 10h17" stroke="currentColor" stroke-width="1.8"/><path d="M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>Agendamentos</span>
+        <span class="badge-aba" id="badge-atrasados" hidden></span>
+      </button>
+      <button data-aba="metas">
+        <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>
+        <span>Metas</span>
+      </button>
+      <button data-aba="anual">
+        <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 20V11M12 20V4M20 20v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 20.5h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>Comparativo Anual</span>
+      </button>
+      <button data-aba="notas">
+        <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>Notas Fiscais</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-rodape">
+      <span class="sync-status ok" id="sync-status">Sincronizado</span>
+      <div class="sidebar-rodape-acoes">
+        <button class="icon-btn" id="btn-pesquisa-universal" title="Pesquisar em tudo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+        <button class="icon-btn" id="btn-categorias" title="Categorias">&#9881;</button>
+        <button class="icon-btn" id="btn-atualizar" title="Atualizar app">&#8635;</button>
+      </div>
+      <div class="sidebar-rodape-usuario">
+        <span class="email" id="user-email"></span>
+        <button class="btn-sair" id="btn-logout">Sair</button>
+      </div>
+    </div>
+  </aside>
 
   <main>
+    <!-- ---------- ABA INÍCIO ---------- -->
+    <section id="aba-inicio">
+      <div class="painel-secao" id="painel-hoje-confirmar" hidden>
+        <h2>Agendados hoje <span id="hoje-confirmar-contagem"></span></h2>
+        <div id="lista-hoje-confirmar"></div>
+      </div>
+
+      <div class="painel-secao" id="painel-pendentes" hidden>
+        <h2>Contatos pendentes <span id="pendentes-contagem"></span></h2>
+        <div id="lista-pendentes"></div>
+      </div>
+
+      <div class="vazio" id="inicio-vazio">Nenhum contato aguardando nem agendado pra hoje. Tudo em dia!</div>
+    </section>
+
     <!-- ---------- ABA AGENDAMENTOS ---------- -->
-    <section id="aba-agendamentos">
+    <section id="aba-agendamentos" hidden>
       <div class="topo-aba">
         <div class="nav-mes">
           <button id="mes-anterior">&#8249;</button>
@@ -437,7 +498,7 @@
 
       <div class="painel-secao links-uteis-painel">
         <div class="painel-secao-header">
-          <h2>Links úteis</h2>
+          <h2>Links rápidos</h2>
           <button type="button" class="btn outline sm" id="btn-add-link">+ Link</button>
         </div>
         <div class="links-uteis" id="links-uteis-grid"></div>
@@ -445,11 +506,6 @@
       </div>
 
       <div class="grid-cards" id="cards-resumo"></div>
-
-      <div class="painel-secao" id="painel-pendentes" hidden>
-        <h2>Contatos pendentes <span id="pendentes-contagem"></span></h2>
-        <div id="lista-pendentes"></div>
-      </div>
 
       <div class="painel-secao">
         <div class="painel-secao-header">
@@ -474,6 +530,7 @@
           <select id="filtro-cidade"><option value="">Cidade (todas)</option></select>
           <select id="filtro-clinica"><option value="">Clínica (todas)</option></select>
           <select id="filtro-motivo"><option value="">Motivo (todos)</option></select>
+          <button type="button" class="btn outline sm chip-periodo" id="btn-filtro-7dias">Últimos 7 dias</button>
           <button type="button" class="btn outline sm" id="btn-limpar-filtros" hidden>Limpar filtros</button>
         </div>
         <div class="tabela-wrap">
@@ -518,6 +575,15 @@
       <div class="anual-destaques" id="anual-destaques"></div>
 
       <div class="painel-secao">
+        <h2>Gráfico anual</h2>
+        <div class="anual-legenda" id="anual-legenda"></div>
+        <div class="anual-grafico-wrap">
+          <svg id="grafico-anual" viewBox="0 0 720 260" preserveAspectRatio="none"></svg>
+          <div class="anual-tooltip" id="anual-tooltip"></div>
+        </div>
+      </div>
+
+      <div class="painel-secao">
         <h2>Comparativo por mês</h2>
         <div class="tabela-wrap compacta">
           <table>
@@ -539,7 +605,7 @@
 
       <div class="painel-secao links-uteis-painel">
         <div class="painel-secao-header">
-          <h2>Links úteis</h2>
+          <h2>Links rápidos</h2>
           <button type="button" class="btn outline sm" id="btn-add-link-nf">+ Link</button>
         </div>
         <div class="links-uteis" id="links-uteis-grid-nf"></div>
@@ -552,27 +618,44 @@
         <h2>Lançamentos</h2>
         <div class="filtros">
           <input type="text" id="nf-filtro-busca" placeholder="Buscar por cliente, animal, telefone, CPF...">
-          <select id="nf-filtro-situacao">
-            <option value="">Situação (todas)</option>
-            <option value="pendente">Pendente</option>
-            <option value="feito">Feito</option>
-          </select>
+          <select id="nf-filtro-cidade"><option value="">Cidade (todas)</option></select>
           <button class="btn outline" id="nf-btn-servicos">Gerenciar serviços</button>
           <button class="btn marrom" id="nf-btn-novo">+ Novo lançamento</button>
         </div>
+      </div>
+
+      <div class="painel-secao nf-grupo nf-grupo-pendentes">
+        <h2>Pendentes <span class="badge-contagem" id="nf-contagem-pendentes">0</span></h2>
         <div class="tabela-wrap">
           <table>
             <thead>
               <tr>
                 <th>Cliente</th><th>Animal</th><th>Telefone</th><th>Cidade</th><th>Serviço(s)</th>
                 <th>Data pagto.</th><th>Pagamento</th><th>Cobrado</th><th>Na nota</th>
-                <th>NF?</th><th>Situação</th><th></th>
+                <th>Enviar?</th><th>Situação</th><th></th>
               </tr>
             </thead>
-            <tbody id="nf-tabela-corpo"></tbody>
+            <tbody id="nf-tabela-pendentes-corpo"></tbody>
           </table>
         </div>
-        <div class="vazio" id="nf-tabela-vazia" hidden>Nenhum lançamento neste mês/filtro.</div>
+        <div class="vazio" id="nf-tabela-pendentes-vazia" hidden>Nenhum lançamento pendente neste mês/filtro.</div>
+      </div>
+
+      <div class="painel-secao nf-grupo nf-grupo-feitas">
+        <h2>Feitas <span class="badge-contagem" id="nf-contagem-feitas">0</span></h2>
+        <div class="tabela-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Cliente</th><th>Animal</th><th>Telefone</th><th>Cidade</th><th>Serviço(s)</th>
+                <th>Data pagto.</th><th>Pagamento</th><th>Cobrado</th><th>Na nota</th>
+                <th>Enviar?</th><th>Situação</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="nf-tabela-feitas-corpo"></tbody>
+          </table>
+        </div>
+        <div class="vazio" id="nf-tabela-feitas-vazia" hidden>Nenhuma nota feita neste mês/filtro.</div>
       </div>
     </section>
   </main>
@@ -681,8 +764,8 @@
       </div>
 
       <div class="linha2">
-        <div class="campo"><label>Valor cobrado (R$)</label><input type="number" step="0.01" min="0" id="nf-f-cobrado" placeholder="0,00"></div>
-        <div class="campo"><label>Splits (R$)</label><input type="number" step="0.01" min="0" id="nf-f-splits" placeholder="0,00"></div>
+        <div class="campo"><label>Valor cobrado (R$)</label><input type="text" inputmode="decimal" id="nf-f-cobrado" placeholder="0,00"></div>
+        <div class="campo"><label>Splits (R$)</label><input type="text" inputmode="decimal" id="nf-f-splits" placeholder="0,00"></div>
       </div>
       <div class="linha2">
         <div class="campo"><label>Valor na nota (R$)</label><input type="text" id="nf-f-valornota" readonly></div>
@@ -706,7 +789,7 @@
 
       <label class="check-inline">
         <input type="checkbox" id="nf-f-quer-nf" checked>
-        Cliente quer nota fiscal
+        Enviar a nota fiscal para o cliente (os dados abaixo são preenchidos sempre, quer ele receba ou não)
       </label>
 
       <div id="nf-dados-nf-bloco">

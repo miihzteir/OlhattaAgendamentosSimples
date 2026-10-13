@@ -55,9 +55,9 @@ let anoAnual = new Date().getFullYear(); // controla ano da aba Comparativo Anua
 let editingEntryId = null;
 let editingNfId = null;
 let nfNomeSincronizado = true; // enquanto true, "Nome completo (NF)" copia o que for digitado em "Cliente"
-let abaAtiva = 'agendamentos';
-let filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '' };
-let nfFiltros = { busca: '', situacao: '' };
+let abaAtiva = 'inicio';
+let filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', periodo: '' };
+let nfFiltros = { busca: '', cidade: '' };
 let ordenacao = { campo: null, asc: true }; // null = ordem padrão (por data)
 let unsubDoc = null;
 let unsubEntries = null;
@@ -236,6 +236,16 @@ function adicionarServico(valor) {
 function removerServico(valor) {
   return nfDocRef.update({ servicosSalvos: firebase.firestore.FieldValue.arrayRemove(valor) });
 }
+// Renomear = trocar o valor dentro do array inteiro (não dá pra usar
+// arrayUnion/arrayRemove pra isso, por isso grava a lista completa)
+function renomearServico(valorAntigo, valorNovo) {
+  const lista = (state.nf.servicosSalvos || []).slice();
+  const idx = lista.indexOf(valorAntigo);
+  if (idx === -1) return Promise.reject(new Error('Serviço não encontrado'));
+  if (lista.includes(valorNovo)) return Promise.reject(new Error('Já existe um serviço com esse nome'));
+  lista[idx] = valorNovo;
+  return nfDocRef.update({ servicosSalvos: lista });
+}
 
 // ---- Categorias: arrayUnion/arrayRemove são operações atômicas no Firestore —
 // duas pessoas mexendo ao mesmo tempo não apagam a alteração uma da outra ----
@@ -390,6 +400,14 @@ function fecharModalPesquisa() { document.getElementById('modal-pesquisa').hidde
 document.getElementById('btn-pesquisa-universal').addEventListener('click', abrirModalPesquisa);
 document.getElementById('fechar-modal-pesquisa').addEventListener('click', fecharModalPesquisa);
 document.getElementById('pesquisa-universal-input').addEventListener('input', ev => renderResultadosPesquisa(ev.target.value));
+// Limpa sozinho ao clicar fora do campo — com um pequeno atraso pra dar tempo
+// de um clique num resultado (que também tira o foco do campo) terminar antes
+document.getElementById('pesquisa-universal-input').addEventListener('blur', () => {
+  setTimeout(() => {
+    const input = document.getElementById('pesquisa-universal-input');
+    if (input.value) { input.value = ''; renderResultadosPesquisa(''); }
+  }, 200);
+});
 document.addEventListener('keydown', ev => {
   if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k') {
     ev.preventDefault();
@@ -475,6 +493,27 @@ function entriesDoMes(mesKey) {
   return porContato.concat(porOutraDataNesseMes);
 }
 
+// Filtro rápido "Últimos 7 dias": ignora o mês selecionado e olha os últimos
+// 7 dias corridos (hoje incluso) pela data mais relevante de cada contato
+// (agendamento/desmarque, ou contato quando não tem a outra)
+function entriesUltimos7Dias() {
+  const hoje = new Date();
+  const limite = new Date(hoje);
+  limite.setDate(limite.getDate() - 6);
+  const hojeStrVal = hojeStr();
+  const limiteStr = limite.getFullYear() + '-' + pad2(limite.getMonth()+1) + '-' + pad2(limite.getDate());
+  return state.entries.filter(e => {
+    const data = e.dataAgendamento || e.dataContato || '';
+    return !!data && data >= limiteStr && data <= hojeStrVal;
+  });
+}
+
+// Lista base da tabela/chips de Agendamentos: por mês normalmente, ou os
+// últimos 7 dias quando esse filtro rápido está ativo
+function listaBaseAgendamentos(mesKey) {
+  return filtros.periodo === '7dias' ? entriesUltimos7Dias() : entriesDoMes(mesKey);
+}
+
 function statsDoMes(mesKey) {
   const contatos = contatosUnicosDoMes(mesKey);
   const agendados = agendadosDoMes(mesKey);
@@ -556,12 +595,14 @@ function atualizarBadgeAtrasados() {
 }
 
 function renderAba() {
+  document.getElementById('aba-inicio').hidden = abaAtiva !== 'inicio';
   document.getElementById('aba-agendamentos').hidden = abaAtiva !== 'agendamentos';
   document.getElementById('aba-metas').hidden = abaAtiva !== 'metas';
   document.getElementById('aba-notas').hidden = abaAtiva !== 'notas';
   document.getElementById('aba-anual').hidden = abaAtiva !== 'anual';
   document.querySelectorAll('nav.abas button').forEach(b => b.classList.toggle('ativa', b.dataset.aba === abaAtiva));
-  if (abaAtiva === 'agendamentos' || abaAtiva === 'metas') renderAgendamentos();
+  if (abaAtiva === 'inicio') renderInicio();
+  else if (abaAtiva === 'agendamentos' || abaAtiva === 'metas') renderAgendamentos();
   else if (abaAtiva === 'notas') { if (carregouNfDoc && carregouNfEntries) renderNotas(); }
   else renderAnual();
 }
@@ -628,6 +669,7 @@ function popularSelects() {
   preencher('filtro-cidade', cat.cidades, 'Cidade (todas)');
   preencher('filtro-clinica', cat.clinicas, 'Clínica (todas)');
   preencher('filtro-motivo', cat.motivos, 'Motivo (todos)');
+  preencher('nf-filtro-cidade', cat.cidades, 'Cidade (todas)');
 
   preencher('f-clinica', cat.clinicas, null);
   preencher('f-cidade', cat.cidades, null);
@@ -639,7 +681,43 @@ function popularSelects() {
   optNovoMotivo.textContent = '+ Adicionar novo motivo...';
   document.getElementById('f-motivo').appendChild(optNovoMotivo);
 
+  // "+ Adicionar nova cidade..." direto no formulário — igual ao de motivo,
+  // pra ela não precisar ir no ícone de engrenagem só pra cadastrar uma cidade nova
+  ['f-cidade', 'nf-f-cidade'].forEach(id => {
+    const optNovaCidade = document.createElement('option');
+    optNovaCidade.value = '__novo__';
+    optNovaCidade.textContent = '+ Adicionar nova cidade...';
+    document.getElementById(id).appendChild(optNovaCidade);
+  });
 }
+
+// Adiciona uma categoria nova direto de um <select> do formulário (sem abrir o
+// painel de Categorias) — mesmo mecanismo usado em Motivo, generalizado pra
+// poder ser reaproveitado em Cidade (e outros, se precisar no futuro)
+function configurarAdicaoInline(idSelect, chaveCategoria, rotulo) {
+  const sel = document.getElementById(idSelect);
+  if (!sel) return;
+  sel.addEventListener('change', () => {
+    if (sel.value !== '__novo__') return;
+    const valorAnterior = (state.categorias[chaveCategoria] || [])[0] || '';
+    const novo = (prompt('Digite a nova ' + rotulo + ':') || '').trim();
+    if (!novo) { sel.value = valorAnterior; return; }
+    if (state.categorias[chaveCategoria].includes(novo)) { sel.value = novo; return; }
+    sel.disabled = true;
+    adicionarCategoria(chaveCategoria, novo).then(() => {
+      sel.disabled = false;
+      if (!state.categorias[chaveCategoria].includes(novo)) state.categorias[chaveCategoria].push(novo);
+      popularSelects();
+      sel.value = novo;
+    }).catch(err => {
+      sel.disabled = false;
+      sel.value = valorAnterior;
+      mostrarToast('Não foi possível adicionar a cidade: ' + err.message);
+    });
+  });
+}
+configurarAdicaoInline('f-cidade', 'cidades', 'cidade');
+configurarAdicaoInline('nf-f-cidade', 'cidades', 'cidade');
 
 // Clínica define a cidade automaticamente (quando a clínica tem cidade fixa)
 const CLINICA_CIDADE_AUTO = {
@@ -773,7 +851,6 @@ function renderAgendamentos() {
   const stats = statsDoMes(mesKey);
 
   renderCards(stats);
-  renderPendentes(mesKey);
   renderSemanas(stats, mesKey);
   renderMetas(mesKey, stats);
   renderChipsStatus(mesKey);
@@ -787,7 +864,7 @@ function renderAgendamentos() {
 function renderChipsStatus(mesKey) {
   const cont = document.getElementById('chips-status');
   if (!cont) return;
-  const lista = entriesDoMes(mesKey);
+  const lista = listaBaseAgendamentos(mesKey);
   const contagem = {};
   lista.forEach(e => { contagem[e.status] = (contagem[e.status]||0) + 1; });
   const ordem = ['Aguardando','Agendado','Realizado','Desmarcou','Não Agendou'];
@@ -803,11 +880,66 @@ function renderChipsStatus(mesKey) {
   });
 }
 
-// Contatos com status "Aguardando" (a recontatar depois) — mostra só quem tem
-// o dia de recontatar caindo no mês que está sendo visto agora (mesmo lugar que
-// a tabela já mostra o lembrete), MAIS quem já está atrasado (não pode sumir só
-// porque virou o mês), mesmo que o atraso seja de outro mês.
-function renderPendentes(mesKey) {
+// ============================================================
+// ABA INÍCIO — painel inicial: pendentes + agendados de hoje pra confirmar
+// ============================================================
+function renderInicio() {
+  renderAgendadosHoje();
+  renderPainelPendentes();
+  const vazio = document.getElementById('inicio-vazio');
+  if (vazio) {
+    const semNada = document.getElementById('painel-hoje-confirmar').hidden && document.getElementById('painel-pendentes').hidden;
+    vazio.hidden = !semNada;
+  }
+}
+
+// Agendados pra HOJE (status Agendado, data = hoje) — ela confirma aqui se o
+// cliente realmente veio; confirmando, já marca Realizado na hora
+function entriesAgendadosHoje() {
+  const hoje = hojeStr();
+  return state.entries
+    .filter(e => e.status === 'Agendado' && e.dataAgendamento === hoje)
+    .sort((a, b) => (a.horario || '').localeCompare(b.horario || ''));
+}
+
+function renderAgendadosHoje() {
+  const painel = document.getElementById('painel-hoje-confirmar');
+  const contagem = document.getElementById('hoje-confirmar-contagem');
+  const lista = document.getElementById('lista-hoje-confirmar');
+  const agendadosHoje = entriesAgendadosHoje();
+
+  if (agendadosHoje.length === 0) { painel.hidden = true; return; }
+
+  painel.hidden = false;
+  contagem.textContent = agendadosHoje.length;
+  lista.innerHTML = agendadosHoje.map(e => `
+    <div class="pendente-item">
+      <div class="pendente-info">
+        <b>${escapeHtml(e.nome || '(sem nome)')}</b> — ${telefoneClicavel(e.telefone)}${e.animal ? ' · ' + escapeHtml(e.animal) : ''}
+        <span>${e.horario ? 'Hoje às ' + escapeHtml(e.horario) : 'Hoje'}${e.clinica ? ' · ' + escapeHtml(e.clinica) : ''}</span>
+      </div>
+      <button type="button" class="btn marrom sm btn-confirmar-hoje" data-id="${e.id}">Confirmou?</button>
+    </div>
+  `).join('');
+
+  lista.querySelectorAll('.btn-confirmar-hoje').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const entry = state.entries.find(e => e.id === btn.dataset.id);
+      if (!entry) return;
+      if (!confirm('"' + (entry.nome || 'esse contato') + '" confirmou e compareceu? Vai marcar como Realizado.')) return;
+      const atualizado = Object.assign({}, entry, { status: 'Realizado' });
+      btn.disabled = true;
+      atualizarContato(entry.id, atualizado)
+        .then(() => mostrarToast('Marcado como Realizado'))
+        .catch(err => { mostrarToast('Não foi possível marcar: ' + err.message); btn.disabled = false; });
+    });
+  });
+}
+
+// Contatos com status "Aguardando" (a recontatar depois) — agora é um painel
+// só (aba Início), sem depender do mês selecionado em Agendamentos: mostra
+// todo mundo que está esperando contato, mais próximo primeiro.
+function renderPainelPendentes() {
   const painel = document.getElementById('painel-pendentes');
   const contagem = document.getElementById('pendentes-contagem');
   const lista = document.getElementById('lista-pendentes');
@@ -817,11 +949,6 @@ function renderPendentes(mesKey) {
   // antigos sem esse dia definido caem no fim, ordenados pela data de contato
   const pendentes = state.entries
     .filter(e => e.status === 'Aguardando')
-    .filter(e => {
-      const dataLembrete = e.dataAgendamento || e.dataContato || '';
-      const atrasado = !!dataLembrete && dataLembrete < hoje;
-      return atrasado || mesDe(e.dataAgendamento || e.dataContato) === mesKey;
-    })
     .sort((a, b) => {
       const da = a.dataAgendamento || '9999-99-99';
       const db_ = b.dataAgendamento || '9999-99-99';
@@ -949,10 +1076,12 @@ function renderMetas(mesKey, stats) {
       else { statusTxt = 'Meta em andamento...'; statusClasse = 'andamento'; }
     }
 
-    const formatar = v => campo.moeda ? 'R$ ' + v.toFixed(2) : v;
+    const formatar = v => campo.moeda ? 'R$ ' + formatarMoeda(v) : v;
 
     const campoAtualManual = campo.manual
-      ? `<label style="flex:1">Atual${campo.moeda ? ' (R$)' : ''}<input type="number" min="0" step="${campo.moeda ? '0.01' : '1'}" data-mkey="${mesKey}" data-campo="atual${campo.key}" value="${atual||''}" class="input-meta"></label>`
+      ? (campo.moeda
+          ? `<label style="flex:1">Atual (R$)<input type="text" inputmode="decimal" placeholder="0,00" data-mkey="${mesKey}" data-campo="atual${campo.key}" value="${atual ? formatarMoedaInput(atual) : ''}" class="input-meta input-moeda"></label>`
+          : `<label style="flex:1">Atual<input type="number" min="0" step="1" data-mkey="${mesKey}" data-campo="atual${campo.key}" value="${atual||''}" class="input-meta"></label>`)
       : '';
 
     return `
@@ -966,8 +1095,11 @@ function renderMetas(mesKey, stats) {
           ${pctSuper !== null ? `<div class="marcador-super" style="left:${pctSuper}%"></div>` : ''}
         </div>
         <div class="meta-rodape">
-          <label>Meta<input type="number" min="0" step="1" data-mkey="${mesKey}" data-campo="meta${campo.key}" value="${meta||''}" class="input-meta"></label>
-          <label>Supermeta<input type="number" min="0" step="1" data-mkey="${mesKey}" data-campo="super${campo.key}" value="${super_||''}" class="input-meta"></label>
+          ${campo.moeda
+            ? `<label>Meta (R$)<input type="text" inputmode="decimal" placeholder="0,00" data-mkey="${mesKey}" data-campo="meta${campo.key}" value="${meta ? formatarMoedaInput(meta) : ''}" class="input-meta input-moeda"></label>
+          <label>Supermeta (R$)<input type="text" inputmode="decimal" placeholder="0,00" data-mkey="${mesKey}" data-campo="super${campo.key}" value="${super_ ? formatarMoedaInput(super_) : ''}" class="input-meta input-moeda"></label>`
+            : `<label>Meta<input type="number" min="0" step="1" data-mkey="${mesKey}" data-campo="meta${campo.key}" value="${meta||''}" class="input-meta"></label>
+          <label>Supermeta<input type="number" min="0" step="1" data-mkey="${mesKey}" data-campo="super${campo.key}" value="${super_||''}" class="input-meta"></label>`}
           ${campoAtualManual}
           <span class="meta-status ${statusClasse}">${statusTxt}</span>
         </div>
@@ -975,6 +1107,9 @@ function renderMetas(mesKey, stats) {
     `;
   }).join('');
 
+  cont.querySelectorAll('.input-moeda').forEach(inp => {
+    inp.addEventListener('input', () => { inp.value = maskMoeda(inp.value); });
+  });
   cont.querySelectorAll('.input-meta').forEach(inp => {
     inp.addEventListener('change', onMetaInputChange);
   });
@@ -984,14 +1119,14 @@ function onMetaInputChange(ev) {
   const el = ev.target;
   const mkey = el.dataset.mkey;
   const campo = el.dataset.campo;
-  const valor = el.value === '' ? 0 : Number(el.value);
+  const valor = el.classList.contains('input-moeda') ? moedaParaNumero(el.value) : (el.value === '' ? 0 : Number(el.value));
   state.metas[mkey] = Object.assign({}, state.metas[mkey] || {}, { [campo]: valor }); // atualização otimista local
   salvarCampoMeta(mkey, campo, valor).then(() => mostrarToast('Meta salva')).catch(err => mostrarToast('Erro ao salvar meta: ' + err.message));
 }
 
 // ---------- Filtros ----------
 function atualizarBotaoLimparFiltros() {
-  const algumAtivo = !!(filtros.busca || filtros.status || filtros.tipo || filtros.cidade || filtros.clinica || filtros.motivo);
+  const algumAtivo = !!(filtros.busca || filtros.status || filtros.tipo || filtros.cidade || filtros.clinica || filtros.motivo || filtros.periodo);
   document.getElementById('btn-limpar-filtros').hidden = !algumAtivo;
 }
 
@@ -1009,6 +1144,31 @@ function atualizarBotaoLimparFiltros() {
   });
 });
 
+// Campo de busca se limpa sozinho ao clicar fora (sem atrapalhar um clique em
+// Editar na linha filtrada: o atraso dá tempo desse clique acontecer primeiro
+// com o botão original, antes da tabela ser redesenhada sem o filtro)
+document.getElementById('filtro-busca').addEventListener('blur', () => {
+  setTimeout(() => {
+    const el = document.getElementById('filtro-busca');
+    if (!el.value) return;
+    el.value = '';
+    filtros.busca = '';
+    renderTabela(mesKeyDe(currentDate));
+    renderChipsStatus(mesKeyDe(currentDate));
+    atualizarBotaoLimparFiltros();
+  }, 200);
+});
+
+// Atalho "Últimos 7 dias": ignora o mês selecionado e olha só os últimos 7
+// dias corridos, combinando normalmente com os outros filtros (status, etc.)
+document.getElementById('btn-filtro-7dias').addEventListener('click', () => {
+  filtros.periodo = filtros.periodo === '7dias' ? '' : '7dias';
+  document.getElementById('btn-filtro-7dias').classList.toggle('ativo', filtros.periodo === '7dias');
+  renderTabela(mesKeyDe(currentDate));
+  renderChipsStatus(mesKeyDe(currentDate));
+  atualizarBotaoLimparFiltros();
+});
+
 document.getElementById('btn-limpar-filtros').addEventListener('click', () => {
   document.getElementById('filtro-busca').value = '';
   document.getElementById('filtro-status').value = '';
@@ -1016,7 +1176,8 @@ document.getElementById('btn-limpar-filtros').addEventListener('click', () => {
   document.getElementById('filtro-cidade').value = '';
   document.getElementById('filtro-clinica').value = '';
   document.getElementById('filtro-motivo').value = '';
-  filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '' };
+  document.getElementById('btn-filtro-7dias').classList.remove('ativo');
+  filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', periodo: '' };
   renderTabela(mesKeyDe(currentDate));
   renderChipsStatus(mesKeyDe(currentDate));
   atualizarBotaoLimparFiltros();
@@ -1073,7 +1234,7 @@ function contarDesmarquesPorTelefone(telefone) {
 }
 
 function renderTabela(mesKey) {
-  let lista = entriesDoMes(mesKey);
+  let lista = listaBaseAgendamentos(mesKey);
   if (filtros.status) lista = lista.filter(e => e.status === filtros.status);
   if (filtros.tipo) lista = lista.filter(e => e.tipo === filtros.tipo);
   if (filtros.cidade) lista = lista.filter(e => e.cidade === filtros.cidade);
@@ -1160,7 +1321,10 @@ function renderTabela(mesKey) {
       <td>${formatarData(e.dataAgendamento)}${e.horario ? `<span class="hora-agend">${escapeHtml(e.horario)}</span>` : ''}${ehHoje ? '<span class="tag-hoje">Hoje</span>' : ''}</td>
       ${celObsClicavel(e.motivo, e.detalheMotivo, 'Motivo')}
       ${celObsClicavel(e.obs, '', 'Observação')}
-      <td class="acoes"><button class="btn outline sm btn-editar">Editar</button></td>
+      <td class="acoes">
+        <button class="btn outline sm btn-editar">Editar</button>
+        ${e.status !== 'Desmarcou' ? '<button class="btn vermelho sm btn-desmarcar" title="Marcar como Desmarcou rapidinho">✕ Desmarcar</button>' : ''}
+      </td>
     </tr>
   `;
   }).join('');
@@ -1169,6 +1333,28 @@ function renderTabela(mesKey) {
     btn.addEventListener('click', () => {
       const id = btn.closest('tr').dataset.id;
       abrirModalEntry(state.entries.find(e => e.id === id));
+    });
+  });
+
+  // Atalho rápido: marca como Desmarcou direto na tabela, sem abrir o
+  // formulário inteiro (o motivo/detalhe, se ela quiser, continua dando pra
+  // completar depois clicando em Editar)
+  corpo.querySelectorAll('.btn-desmarcar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('tr').dataset.id;
+      const entry = state.entries.find(e => e.id === id);
+      if (!entry) return;
+      if (!confirm('Marcar "' + (entry.nome || 'esse contato') + '" como Desmarcou?')) return;
+      const atualizado = Object.assign({}, entry, {
+        status: 'Desmarcou',
+        dataAgendamento: hojeStr(),
+        motivo: entry.motivo || '',
+        detalheMotivo: entry.detalheMotivo || ''
+      });
+      btn.disabled = true;
+      atualizarContato(id, atualizado)
+        .then(() => mostrarToast('Marcado como Desmarcou'))
+        .catch(err => { mostrarToast('Não foi possível marcar: ' + err.message); btn.disabled = false; });
     });
   });
 
@@ -1531,6 +1717,90 @@ function renderAnual() {
     </tr>
   `).join('');
   document.getElementById('tabela-anual-corpo').innerHTML = linhasHtml;
+
+  renderGraficoAnual(meses, defs);
+}
+
+// ---- Gráfico do Comparativo Anual: uma linha por indicador, mês a mês ----
+// Cores escolhidas e validadas pra quem tem daltonismo conseguir diferenciar
+// as 3 linhas mesmo sem olhar a legenda (não são as cores do tema do app).
+const CORES_ANUAL = { contatos: '#2a78d6', consultas: '#eb6834', cirurgias: '#1baf7a' };
+
+function escalaNiceMax(valor) {
+  if (valor <= 0) return 4;
+  const passos = [1, 2, 2.5, 5, 10];
+  const grandeza = Math.pow(10, Math.floor(Math.log10(valor)));
+  for (const p of passos) {
+    const candidato = p * grandeza;
+    if (candidato >= valor) return candidato;
+  }
+  return 10 * grandeza;
+}
+
+function renderGraficoAnual(meses, defs) {
+  const svg = document.getElementById('grafico-anual');
+  const legenda = document.getElementById('anual-legenda');
+  const tooltip = document.getElementById('anual-tooltip');
+  if (!svg || !legenda) return;
+
+  legenda.innerHTML = defs.map(d => `<span class="legenda-item"><span class="legenda-linha" style="background:${CORES_ANUAL[d.campo]}"></span>${escapeHtml(d.label)}</span>`).join('');
+
+  const W = 720, H = 260, PAD_L = 32, PAD_R = 14, PAD_T = 14, PAD_B = 28;
+  const areaW = W - PAD_L - PAD_R, areaH = H - PAD_T - PAD_B;
+  const valorMax = escalaNiceMax(Math.max(0, ...meses.flatMap(m => defs.map(d => m[d.campo]))));
+  const xDe = i => PAD_L + (areaW * i) / 11;
+  const yDe = v => PAD_T + areaH - (areaH * v) / valorMax;
+
+  const NUM_FAIXAS = 4;
+  let grade = '';
+  for (let i = 0; i <= NUM_FAIXAS; i++) {
+    const v = Math.round((valorMax / NUM_FAIXAS) * i);
+    const y = yDe(v);
+    grade += `<line x1="${PAD_L}" y1="${y.toFixed(1)}" x2="${W - PAD_R}" y2="${y.toFixed(1)}" stroke="#EFE3D3" stroke-width="1"/>`;
+    grade += `<text x="${PAD_L - 6}" y="${(y + 3.5).toFixed(1)}" font-size="9.5" fill="#7A6A5C" text-anchor="end">${v}</text>`;
+  }
+
+  let rotulosMes = '';
+  meses.forEach((m, i) => {
+    rotulosMes += `<text x="${xDe(i).toFixed(1)}" y="${H - 8}" font-size="9.5" fill="#7A6A5C" text-anchor="middle">${MESES_ABREV[i]}</text>`;
+  });
+
+  let linhas = '';
+  defs.forEach(d => {
+    const cor = CORES_ANUAL[d.campo];
+    const pontos = meses.map((m, i) => `${xDe(i).toFixed(1)},${yDe(m[d.campo]).toFixed(1)}`).join(' ');
+    linhas += `<polyline points="${pontos}" fill="none" stroke="${cor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+    meses.forEach((m, i) => {
+      linhas += `<circle cx="${xDe(i).toFixed(1)}" cy="${yDe(m[d.campo]).toFixed(1)}" r="4" fill="${cor}" stroke="#FFF8F2" stroke-width="2"></circle>`;
+    });
+  });
+
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = grade + linhas + rotulosMes +
+    `<line id="anual-crosshair" x1="${PAD_L}" y1="${PAD_T}" x2="${PAD_L}" y2="${H - PAD_B}" stroke="#C9AD8C" stroke-width="1" style="display:none"></line>`;
+
+  if (!tooltip) return;
+  function atualizarHover(clientX) {
+    const rect = svg.getBoundingClientRect();
+    if (!rect.width) return;
+    const escalaX = W / rect.width;
+    const xSvg = (clientX - rect.left) * escalaX;
+    let idx = Math.round(((xSvg - PAD_L) / areaW) * 11);
+    idx = Math.max(0, Math.min(11, idx));
+    const cx = xDe(idx);
+    const crosshair = document.getElementById('anual-crosshair');
+    if (crosshair) { crosshair.setAttribute('x1', cx); crosshair.setAttribute('x2', cx); crosshair.style.display = ''; }
+    tooltip.innerHTML = `<b>${MESES[idx]}</b>` + defs.map(d => `<div class="anual-tooltip-linha"><span class="legenda-linha" style="background:${CORES_ANUAL[d.campo]}"></span>${escapeHtml(d.label)}: <b>${meses[idx][d.campo]}</b></div>`).join('');
+    tooltip.style.display = 'block';
+    const xPix = cx / escalaX;
+    tooltip.style.left = Math.max(0, Math.min(rect.width - 170, xPix - 80)) + 'px';
+  }
+  svg.onmousemove = ev => atualizarHover(ev.clientX);
+  svg.onmouseleave = () => {
+    const crosshair = document.getElementById('anual-crosshair');
+    if (crosshair) crosshair.style.display = 'none';
+    tooltip.style.display = 'none';
+  };
 }
 
 // ============================================================
@@ -1549,6 +1819,34 @@ function formatarMoeda(v) {
   return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// ---- Máscara de valor em reais: digita só números, o campo já mostra
+// "20.800,60" sozinho (igual digitar numa calculadora) — sem precisar digitar
+// vírgula nem ponto na mão ----
+function maskMoeda(v) {
+  let digitos = (v || '').toString().replace(/\D/g, '');
+  digitos = digitos.replace(/^0+(?=\d)/, '');
+  if (!digitos) return '';
+  while (digitos.length < 3) digitos = '0' + digitos;
+  const inteiro = digitos.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const centavos = digitos.slice(-2);
+  return inteiro + ',' + centavos;
+}
+function moedaParaNumero(str) {
+  if (!str) return 0;
+  const limpo = str.toString().replace(/\./g, '').replace(',', '.');
+  return Number(limpo) || 0;
+}
+// pra preencher um campo com máscara a partir de um número já salvo (ex: 150.5 -> "150,50")
+function formatarMoedaInput(numero) {
+  const n = Number(numero) || 0;
+  return maskMoeda(Math.round(n * 100).toString());
+}
+function ativarMascaraMoeda(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('input', () => { el.value = maskMoeda(el.value); });
+}
+
 function renderNotas() {
   document.getElementById('nf-mes-rotulo').textContent = rotuloMes(nfCurrentDate);
   const mesKey = mesKeyDe(nfCurrentDate);
@@ -1561,8 +1859,8 @@ function renderNfCards(mesKey) {
   const lista = entriesNfDoMes(mesKey);
   const totalCobrado = lista.reduce((s,e) => s + (Number(e.cobrado)||0), 0);
   const totalNaNota = lista.reduce((s,e) => s + (Number(e.valorNota)||0), 0);
-  const pendentes = lista.filter(e => e.querNf && !e.feito).length;
-  const feitos = lista.filter(e => e.querNf && e.feito).length;
+  const pendentes = lista.filter(e => !e.feito).length;
+  const feitos = lista.filter(e => e.feito).length;
   cont.innerHTML = `
     <div class="card">
       <h3>Lançamentos no mês</h3>
@@ -1588,20 +1886,72 @@ function renderNfCards(mesKey) {
 }
 
 // ---------- Filtros da tabela de NF ----------
-['nf-filtro-busca','nf-filtro-situacao'].forEach(id => {
+['nf-filtro-busca','nf-filtro-cidade'].forEach(id => {
   ['input','change'].forEach(evento => {
     document.getElementById(id).addEventListener(evento, () => {
       nfFiltros.busca = normalizarTexto(document.getElementById('nf-filtro-busca').value.trim());
-      nfFiltros.situacao = document.getElementById('nf-filtro-situacao').value;
+      nfFiltros.cidade = document.getElementById('nf-filtro-cidade').value;
       renderTabelaNf(mesKeyDe(nfCurrentDate));
     });
   });
 });
+// Campo de busca se limpa sozinho ao clicar fora (mesmo atraso usado nos
+// outros campos de busca, pra não atrapalhar um clique em Editar na linha filtrada)
+document.getElementById('nf-filtro-busca').addEventListener('blur', () => {
+  setTimeout(() => {
+    const el = document.getElementById('nf-filtro-busca');
+    if (!el.value) return;
+    el.value = '';
+    nfFiltros.busca = '';
+    renderTabelaNf(mesKeyDe(nfCurrentDate));
+  }, 200);
+});
 
+// Monta a linha de um lançamento — usada nas duas tabelonas (feitas/pendentes)
+function linhaNf(e) {
+  const servicosTxt = (e.servicos||[]).join(', ');
+  return `
+    <tr data-id="${e.id}">
+      <td><span class="avatar-mini">${escapeHtml(iniciais(e.cliente))}</span>${escapeHtml(e.cliente||'')}</td>
+      <td>${escapeHtml(e.animal||'')}</td>
+      <td>${telefoneClicavel(e.telefone)}</td>
+      <td>${escapeHtml(e.cidade||'')}</td>
+      <td>${escapeHtml(servicosTxt || '—')}</td>
+      <td>${formatarData(e.dataPagamento)}</td>
+      <td>${escapeHtml(e.pagamento||'')}</td>
+      <td>R$ ${formatarMoeda(e.cobrado)}</td>
+      <td>R$ ${formatarMoeda(e.valorNota)}</td>
+      <td>${e.querNf ? '<span class="tag-sim-nf">Enviar</span>' : ''}</td>
+      <td><button type="button" class="pill-toggle pill ${e.feito ? 'feito' : 'pendente'} btn-toggle-feito" title="Clique pra marcar ${e.feito ? 'como pendente' : 'como feito'}">${e.feito ? '✓ Feito' : 'Pendente'}</button></td>
+      <td class="acoes"><button class="btn outline sm btn-editar-nf">Editar</button></td>
+    </tr>
+  `;
+}
+
+function renderGrupoNf(idCorpo, idVazio, lista) {
+  const corpo = document.getElementById(idCorpo);
+  if (!corpo) return;
+  document.getElementById(idVazio).hidden = lista.length !== 0;
+  corpo.innerHTML = lista.map(linhaNf).join('');
+  corpo.querySelectorAll('.btn-toggle-feito').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('tr').dataset.id;
+      nfToggleFeito(state.nfEntries.find(e => e.id === id));
+    });
+  });
+  corpo.querySelectorAll('.btn-editar-nf').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('tr').dataset.id;
+      abrirModalNf(state.nfEntries.find(e => e.id === id));
+    });
+  });
+}
+
+// Duas tabelonas separadas (feitas / pendentes) pra não misturar visualmente —
+// o mesmo lançamento aparece numa ou noutra dependendo só do campo "feito"
 function renderTabelaNf(mesKey) {
   let lista = entriesNfDoMes(mesKey);
-  if (nfFiltros.situacao === 'pendente') lista = lista.filter(e => e.querNf && !e.feito);
-  else if (nfFiltros.situacao === 'feito') lista = lista.filter(e => e.feito);
+  if (nfFiltros.cidade) lista = lista.filter(e => e.cidade === nfFiltros.cidade);
   if (nfFiltros.busca) {
     const q = nfFiltros.busca;
     const qDigitos = q.replace(/\D/g, '');
@@ -1620,41 +1970,12 @@ function renderTabelaNf(mesKey) {
     return (b.criadoEm||'').localeCompare(a.criadoEm||'');
   });
 
-  const corpo = document.getElementById('nf-tabela-corpo');
-  document.getElementById('nf-tabela-vazia').hidden = lista.length !== 0;
-  corpo.innerHTML = lista.map(e => {
-    const servicosTxt = (e.servicos||[]).join(', ');
-    return `
-    <tr data-id="${e.id}">
-      <td><span class="avatar-mini">${escapeHtml(iniciais(e.cliente))}</span>${escapeHtml(e.cliente||'')}</td>
-      <td>${escapeHtml(e.animal||'')}</td>
-      <td>${telefoneClicavel(e.telefone)}</td>
-      <td>${escapeHtml(e.cidade||'')}</td>
-      <td>${escapeHtml(servicosTxt || '—')}</td>
-      <td>${formatarData(e.dataPagamento)}</td>
-      <td>${escapeHtml(e.pagamento||'')}</td>
-      <td>R$ ${formatarMoeda(e.cobrado)}</td>
-      <td>R$ ${formatarMoeda(e.valorNota)}</td>
-      <td>${e.querNf ? '' : '<span class="tag-sem-nf">Não quer</span>'}</td>
-      <td>${e.querNf ? `<button type="button" class="pill-toggle pill ${e.feito ? 'feito' : 'pendente'} btn-toggle-feito" title="Clique pra marcar ${e.feito ? 'como pendente' : 'como feito'}">${e.feito ? '✓ Feito' : 'Pendente'}</button>` : '—'}</td>
-      <td class="acoes"><button class="btn outline sm btn-editar-nf">Editar</button></td>
-    </tr>
-  `;
-  }).join('');
-
-  corpo.querySelectorAll('.btn-toggle-feito').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.closest('tr').dataset.id;
-      nfToggleFeito(state.nfEntries.find(e => e.id === id));
-    });
-  });
-
-  corpo.querySelectorAll('.btn-editar-nf').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.closest('tr').dataset.id;
-      abrirModalNf(state.nfEntries.find(e => e.id === id));
-    });
-  });
+  const pendentes = lista.filter(e => !e.feito);
+  const feitas = lista.filter(e => e.feito);
+  renderGrupoNf('nf-tabela-pendentes-corpo', 'nf-tabela-pendentes-vazia', pendentes);
+  renderGrupoNf('nf-tabela-feitas-corpo', 'nf-tabela-feitas-vazia', feitas);
+  document.getElementById('nf-contagem-pendentes').textContent = pendentes.length;
+  document.getElementById('nf-contagem-feitas').textContent = feitas.length;
 }
 
 // ---------- Modal: novo/editar lançamento de NF ----------
@@ -1667,6 +1988,7 @@ document.getElementById('btn-cancelar-nf').addEventListener('click', fecharModal
 function abrirModalNf(entry) {
   popularSelects();
   editingNfId = entry ? entry.id : null;
+  cepUltimaBusca = '';
   document.getElementById('nf-titulo').textContent = entry ? 'Editar lançamento' : 'Novo lançamento';
   document.getElementById('btn-excluir-nf').hidden = !entry;
 
@@ -1675,8 +1997,8 @@ function abrirModalNf(entry) {
   document.getElementById('nf-f-cliente').value = entry ? entry.cliente||'' : '';
   document.getElementById('nf-f-cidade').value = entry ? entry.cidade||'' : (state.categorias.cidades[0]||'');
   document.getElementById('nf-f-datapagamento').value = entry ? entry.dataPagamento||'' : hojeStr();
-  document.getElementById('nf-f-cobrado').value = entry && entry.cobrado ? entry.cobrado : '';
-  document.getElementById('nf-f-splits').value = entry && entry.splits ? entry.splits : '';
+  document.getElementById('nf-f-cobrado').value = entry && entry.cobrado ? formatarMoedaInput(entry.cobrado) : '';
+  document.getElementById('nf-f-splits').value = entry && entry.splits ? formatarMoedaInput(entry.splits) : '';
   document.getElementById('nf-f-pagamento').value = entry ? entry.pagamento||'PIX' : 'PIX';
   document.getElementById('nf-f-quer-nf').checked = entry ? !!entry.querNf : true;
   document.getElementById('nf-f-nome').value = entry ? entry.nomeNf||'' : '';
@@ -1745,24 +2067,24 @@ document.getElementById('nf-btn-add-servico').addEventListener('click', () => {
 });
 
 function nfAtualizarValorNota() {
-  const cobrado = Number(document.getElementById('nf-f-cobrado').value) || 0;
-  const splits = Number(document.getElementById('nf-f-splits').value) || 0;
+  const cobrado = moedaParaNumero(document.getElementById('nf-f-cobrado').value);
+  const splits = moedaParaNumero(document.getElementById('nf-f-splits').value);
   const valor = Math.max(0, cobrado - splits);
   document.getElementById('nf-f-valornota').value = formatarMoeda(valor);
 }
+ativarMascaraMoeda('nf-f-cobrado');
+ativarMascaraMoeda('nf-f-splits');
 document.getElementById('nf-f-cobrado').addEventListener('input', nfAtualizarValorNota);
 document.getElementById('nf-f-splits').addEventListener('input', nfAtualizarValorNota);
 
-// "Dados da nota" e o checkbox "Feito" só fazem sentido quando ela quer nota —
-// e "Feito" só aparece quando o lançamento já existe (não faz sentido perguntar
-// isso ao criar um lançamento novo, ainda nem foi emitida)
+// Os dados da nota são sempre coletados (a clínica emite nota mesmo quando o
+// cliente não pede) — "Enviar nota ao cliente" só controla se ela marca pra
+// mandar ou não, sem esconder nenhum campo. "Feito" só aparece quando o
+// lançamento já existe (não faz sentido perguntar isso ao criar um lançamento
+// novo, ainda nem foi emitida).
 function nfAtualizarVisibilidadeDadosNf() {
-  const quer = document.getElementById('nf-f-quer-nf').checked;
-  document.getElementById('nf-dados-nf-bloco').hidden = !quer;
-  document.getElementById('nf-campo-feito').hidden = !editingNfId || !quer;
-  if (!quer) document.getElementById('nf-campo-dataemissao').hidden = true;
+  document.getElementById('nf-campo-feito').hidden = !editingNfId;
 }
-document.getElementById('nf-f-quer-nf').addEventListener('change', nfAtualizarVisibilidadeDadosNf);
 
 // Enquanto ela não mexer manualmente no "Nome completo (NF)", ele acompanha o
 // que for digitado em "Cliente" — pra não ter que escrever o nome duas vezes
@@ -1786,14 +2108,16 @@ function maskCep(v) {
   v = v.replace(/(\d{5})(\d)/, '$1-$2');
   return v;
 }
-document.getElementById('nf-f-cep').addEventListener('input', ev => { ev.target.value = maskCep(ev.target.value); });
 document.getElementById('nf-f-estado').addEventListener('input', ev => { ev.target.value = ev.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2); });
 
 // Busca o endereço automaticamente pelo CEP (ViaCEP) — se não tiver internet ou
-// o CEP for inválido, simplesmente não preenche nada; ela completa na mão
-document.getElementById('nf-f-cep').addEventListener('blur', () => {
-  const cep = document.getElementById('nf-f-cep').value.replace(/\D/g, '');
-  if (cep.length !== 8) return;
+// o CEP for inválido, simplesmente não preenche nada; ela completa na mão.
+// Dispara assim que completar os 8 dígitos (sem precisar sair do campo) e
+// também ao sair do campo, caso ela cole o CEP já completo.
+let cepUltimaBusca = '';
+function buscarEnderecoPorCep(cep) {
+  if (cep.length !== 8 || cep === cepUltimaBusca) return;
+  cepUltimaBusca = cep;
   fetch(`https://viacep.com.br/ws/${cep}/json/`)
     .then(r => r.json())
     .then(d => {
@@ -1804,6 +2128,15 @@ document.getElementById('nf-f-cep').addEventListener('blur', () => {
       if (d.uf && !document.getElementById('nf-f-estado').value.trim()) document.getElementById('nf-f-estado').value = d.uf;
     })
     .catch(() => { /* sem internet — segue sem preencher automaticamente */ });
+}
+document.getElementById('nf-f-cep').addEventListener('input', ev => {
+  ev.target.value = maskCep(ev.target.value);
+  const cep = ev.target.value.replace(/\D/g, '');
+  if (cep.length < 8) cepUltimaBusca = '';
+  buscarEnderecoPorCep(cep);
+});
+document.getElementById('nf-f-cep').addEventListener('blur', () => {
+  buscarEnderecoPorCep(document.getElementById('nf-f-cep').value.replace(/\D/g, ''));
 });
 
 // Puxa os dados de um lançamento anterior da mesma pessoa, pelo telefone ou
@@ -1858,12 +2191,12 @@ document.querySelectorAll('.btn-copiar').forEach(btn => {
 document.getElementById('form-nf').addEventListener('submit', ev => {
   ev.preventDefault();
   const btnSalvar = ev.target.querySelector('button[type=submit]');
-  const cobrado = Number(document.getElementById('nf-f-cobrado').value) || 0;
-  const splits = Number(document.getElementById('nf-f-splits').value) || 0;
+  const cobrado = moedaParaNumero(document.getElementById('nf-f-cobrado').value);
+  const splits = moedaParaNumero(document.getElementById('nf-f-splits').value);
   const valorNota = Math.max(0, cobrado - splits);
   const querNf = document.getElementById('nf-f-quer-nf').checked;
   const anterior = editingNfId ? state.nfEntries.find(e => e.id === editingNfId) : null;
-  const feito = querNf && document.getElementById('nf-f-feito').checked;
+  const feito = document.getElementById('nf-f-feito').checked;
   // registra a data em que a nota foi marcada como feita; se desmarcar, limpa
   const dataNF = feito ? ((anterior && anterior.feito && anterior.dataNF) || hojeStr()) : '';
 
@@ -1877,16 +2210,16 @@ document.getElementById('form-nf').addEventListener('submit', ev => {
     cobrado, splits, valorNota,
     pagamento: document.getElementById('nf-f-pagamento').value,
     querNf,
-    nomeNf: querNf ? document.getElementById('nf-f-nome').value.trim() : '',
-    cpf: querNf ? document.getElementById('nf-f-cpf').value.trim() : '',
-    cep: querNf ? document.getElementById('nf-f-cep').value.trim() : '',
-    numero: querNf ? document.getElementById('nf-f-numero').value.trim() : '',
-    rua: querNf ? document.getElementById('nf-f-rua').value.trim() : '',
-    complemento: querNf ? document.getElementById('nf-f-complemento').value.trim() : '',
-    bairro: querNf ? document.getElementById('nf-f-bairro').value.trim() : '',
-    cidadeEndereco: querNf ? document.getElementById('nf-f-cidade-end').value.trim() : '',
-    estado: querNf ? document.getElementById('nf-f-estado').value.trim().toUpperCase() : '',
-    email: querNf ? document.getElementById('nf-f-email').value.trim() : '',
+    nomeNf: document.getElementById('nf-f-nome').value.trim(),
+    cpf: document.getElementById('nf-f-cpf').value.trim(),
+    cep: document.getElementById('nf-f-cep').value.trim(),
+    numero: document.getElementById('nf-f-numero').value.trim(),
+    rua: document.getElementById('nf-f-rua').value.trim(),
+    complemento: document.getElementById('nf-f-complemento').value.trim(),
+    bairro: document.getElementById('nf-f-bairro').value.trim(),
+    cidadeEndereco: document.getElementById('nf-f-cidade-end').value.trim(),
+    estado: document.getElementById('nf-f-estado').value.trim().toUpperCase(),
+    email: document.getElementById('nf-f-email').value.trim(),
     obs: document.getElementById('nf-f-obs').value.trim(),
     feito,
     dataNF,
@@ -1929,12 +2262,21 @@ function renderServicosLista() {
   const cont = document.getElementById('servicos-lista');
   const lista = state.nf.servicosSalvos || [];
   cont.innerHTML = lista.length
-    ? lista.map(v => `<span class="chip">${escapeHtml(v)}<button data-valor="${escapeHtml(v)}" class="btn-remover-servico">&times;</button></span>`).join('')
+    ? lista.map(v => `<span class="chip">${escapeHtml(v)}<button data-valor="${escapeHtml(v)}" class="btn-editar-servico" title="Renomear">&#9998;</button><button data-valor="${escapeHtml(v)}" class="btn-remover-servico" title="Excluir">&times;</button></span>`).join('')
     : '<span class="sub">Nenhum serviço salvo ainda</span>';
   cont.querySelectorAll('.btn-remover-servico').forEach(btn => {
     btn.addEventListener('click', () => {
       const valor = btn.dataset.valor;
+      if (!confirm('Excluir o serviço "' + valor + '"?')) return;
       removerServico(valor).then(() => mostrarToast('Serviço removido')).catch(err => mostrarToast('Erro ao remover: ' + err.message));
+    });
+  });
+  cont.querySelectorAll('.btn-editar-servico').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const atual = btn.dataset.valor;
+      const novo = (prompt('Renomear serviço:', atual) || '').trim();
+      if (!novo || novo === atual) return;
+      renomearServico(atual, novo).then(() => mostrarToast('Serviço renomeado')).catch(err => mostrarToast('Não foi possível renomear: ' + err.message));
     });
   });
 }
