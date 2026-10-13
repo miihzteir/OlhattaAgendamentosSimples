@@ -898,8 +898,8 @@ function renderInicio() {
   renderPainelPendentes();
   const vazio = document.getElementById('inicio-vazio');
   if (vazio) {
+    // painel-consultas-hoje agora nunca fica oculto (mostra estado vazio em vez de desaparecer)
     const semNada = document.getElementById('painel-agendados-hoje').hidden
-      && document.getElementById('painel-consultas-hoje').hidden
       && document.getElementById('painel-pendentes').hidden;
     vazio.hidden = !semNada;
   }
@@ -963,12 +963,19 @@ function renderConsultasHoje() {
   const painel = document.getElementById('painel-consultas-hoje');
   const contagem = document.getElementById('consultas-hoje-contagem');
   const lista = document.getElementById('lista-consultas-hoje');
+  const vazio = document.getElementById('consultas-hoje-vazio');
   const consultasHoje = entriesConsultasHoje();
-
-  if (consultasHoje.length === 0) { painel.hidden = true; return; }
 
   painel.hidden = false;
   contagem.textContent = consultasHoje.length;
+
+  if (consultasHoje.length === 0) {
+    lista.innerHTML = '';
+    if (vazio) vazio.hidden = false;
+    return;
+  }
+  if (vazio) vazio.hidden = true;
+
   lista.innerHTML = consultasHoje.map(e => `
     <div class="pendente-item">
       <div class="pendente-info">
@@ -1504,6 +1511,7 @@ function telefoneClicavel(telefone) {
 // MODAL — NOVO / EDITAR CONTATO
 // ============================================================
 document.getElementById('btn-novo').addEventListener('click', () => abrirModalEntry(null));
+document.getElementById('btn-novo-inicio').addEventListener('click', () => abrirModalEntry(null));
 document.getElementById('fechar-modal-entry').addEventListener('click', fecharModalEntry);
 document.getElementById('btn-cancelar-entry').addEventListener('click', fecharModalEntry);
 

@@ -176,6 +176,7 @@
   .painel-secao .desc{font-size:12px;color:var(--texto-claro);margin:0 0 16px;}
 
   /* ---------- ABA INÍCIO ---------- */
+  .inicio-topo{display:flex;justify-content:flex-end;margin-bottom:16px;}
   .inicio-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start;}
   .painel-inicio{background:var(--branco);border:1px solid var(--borda);border-radius:var(--raio);padding:16px 18px;box-shadow:var(--sombra);}
   .painel-inicio h2{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-family:'Quicksand',sans-serif;font-size:13px;font-weight:800;color:var(--verde-pinho-escuro);text-transform:uppercase;letter-spacing:.4px;}
@@ -287,6 +288,11 @@
   /* listras bem sutis pra facilitar acompanhar a linha com o olho numa tabela
      com tantas colunas — quase imperceptíveis, só ajudam a não "perder a linha" */
   tr:nth-child(even) td{background:rgba(138,98,64,.045);}
+  /* "Contatos por semana" é só 5 linhas com 1 coluna de dado — não precisa de
+     listra (e ela competia visualmente com o destaque da semana atual, dando
+     a impressão de mais de uma semana "marcada"); só o destaque semântico conta aqui */
+  #grafico-semanas tr:nth-child(even) td{background:transparent;}
+  #grafico-semanas tr.semana-linha-atual td{background:var(--creme-escuro);}
   /* separadores discretos entre grupos de colunas (quem é / onde-tipo / quando-status /
      agendamento), pra tabela não virar uma parede única de informação */
   #painel-tabela th:nth-child(3), #painel-tabela td:nth-child(3),
@@ -407,6 +413,8 @@
     .painel-secao{padding:14px 16px;}
     .painel-inicio{padding:13px 15px;}
     .inicio-grid{gap:10px;}
+    .inicio-topo{justify-content:stretch;}
+    .inicio-topo .btn{width:100%;text-align:center;}
     /* no celular a tela é estreita; Editar e Duplicar lado a lado tomavam
        metade da largura visível da tabela — empilhados ficam bem mais estreitos */
     #painel-tabela td.acoes{flex-direction:column;gap:4px;padding:8px;}
@@ -488,6 +496,10 @@
   <main>
     <!-- ---------- ABA INÍCIO ---------- -->
     <section id="aba-inicio">
+      <div class="inicio-topo">
+        <button class="btn marrom" id="btn-novo-inicio">+ Novo contato</button>
+      </div>
+
       <div class="inicio-grid">
         <div class="painel-inicio" id="painel-agendados-hoje" hidden>
           <h2><span class="ponto pt-verde"></span>Agendados hoje<span class="contagem" id="agendados-hoje-contagem"></span></h2>
@@ -497,6 +509,7 @@
         <div class="painel-inicio" id="painel-consultas-hoje" hidden>
           <h2><span class="ponto pt-azul"></span>Consultas hoje<span class="contagem" id="consultas-hoje-contagem"></span></h2>
           <div id="lista-consultas-hoje"></div>
+          <p class="vazio-mini" id="consultas-hoje-vazio" hidden>Ninguém tem consulta marcada pra hoje.</p>
         </div>
 
         <div class="painel-inicio" id="painel-pendentes" hidden>
