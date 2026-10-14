@@ -427,6 +427,9 @@
   .cat-add input{flex:1;padding:7px 9px;border:1px solid var(--borda);border-radius:7px;font-size:12px;}
 
   /* anual */
+  /* no desktop o seletor de ano ficava quase grudado nos quadrinhos de
+     destaque logo abaixo — um respiro maior entre os dois */
+  #aba-anual .nav-mes{margin-bottom:24px;}
   .anual-destaques{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
   .stat-tile{border:1px solid var(--borda);border-radius:12px;padding:12px 14px;background:var(--branco);box-shadow:var(--sombra);transition:.15s;}
   .stat-tile .rot{font-size:10px;text-transform:uppercase;color:var(--texto-claro);font-weight:700;letter-spacing:.4px;}
@@ -437,26 +440,34 @@
   /* destaque do mês atual no "Comparativo por mês" (mesma ideia do destaque
      da semana atual em Agendamentos) */
   .tabela-anual{table-layout:fixed;}
-  .tabela-anual th:first-child, .tabela-anual td:first-child{width:76px;}
-  .tabela-anual th:not(:first-child), .tabela-anual td:not(:first-child){text-align:right;font-variant-numeric:tabular-nums;}
+  .tabela-anual th:first-child, .tabela-anual td:first-child{width:76px;border-right:1px solid var(--borda);}
+  .tabela-anual th:not(:first-child), .tabela-anual td:not(:first-child){text-align:center;font-variant-numeric:tabular-nums;}
   #tabela-anual-corpo tr:nth-child(even) td{background:transparent;}
   #tabela-anual-corpo tr.mes-linha-atual td{background:var(--creme-escuro);}
   #tabela-anual-corpo tr.mes-linha-atual td.mes-nome{font-weight:800;color:var(--marrom-escuro);}
   #tabela-anual-corpo tr.mes-linha-atual td.mes-nome::after{content:'· atual';font-weight:600;font-size:11px;color:var(--marrom-escuro);margin-left:6px;text-transform:none;}
   #tabela-anual-corpo td.mes-nome{text-transform:capitalize;font-weight:700;color:var(--texto);}
-  #tabela-anual-corpo td.maior-valor{font-weight:800;color:var(--verde-pinho);position:relative;}
-  #tabela-anual-corpo td.maior-valor::after{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--marrom-claro);margin-left:7px;vertical-align:middle;}
+  /* o valor em destaque (maior do mês) fica num span próprio, com a bolinha
+     posicionada fora do fluxo do texto — assim o número continua centralizado
+     igual aos outros, a bolinha só "flutua" do lado sem empurrar nada */
+  .valor-destaque{position:relative;display:inline-block;font-weight:800;color:var(--verde-pinho);}
+  .valor-destaque::after{content:'';position:absolute;top:50%;left:100%;transform:translateY(-50%);margin-left:5px;width:6px;height:6px;border-radius:50%;background:var(--marrom-claro);}
 
   /* gráfico do comparativo anual */
-  .anual-legenda{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:10px;font-size:12.5px;color:var(--texto-claro);}
+  .anual-legenda{display:flex;flex-wrap:wrap;justify-content:center;gap:16px;font-size:12.5px;color:var(--texto-claro);}
   .legenda-item{display:flex;align-items:center;gap:7px;}
   .legenda-linha{width:16px;height:4px;border-radius:4px;display:inline-block;flex-shrink:0;}
-  .anual-grafico-wrap{position:relative;}
-  #grafico-anual{width:100%;height:auto;display:block;cursor:crosshair;}
-  .anual-tooltip{display:none;position:absolute;top:0;width:170px;background:var(--branco);border:1px solid var(--borda);border-radius:10px;padding:8px 10px;font-size:11.5px;color:var(--texto);box-shadow:0 10px 24px rgba(0,0,0,.16);pointer-events:none;z-index:3;}
-  .anual-tooltip b{text-transform:capitalize;}
-  .anual-tooltip-linha{display:flex;align-items:center;gap:6px;margin-top:4px;}
-  .anual-tooltip-linha .legenda-linha{width:12px;}
+  /* Resumo do ano: pizza pequena + tabela lado a lado, no lugar do gráfico de
+     linhas grande de antes (ocupava altura demais pro que mostrava) */
+  .anual-resumo-grid{display:grid;grid-template-columns:auto 1fr;gap:32px;align-items:center;}
+  .anual-pizza-box{display:flex;flex-direction:column;align-items:center;gap:14px;}
+  .anual-pizza{width:168px;height:168px;border-radius:50%;flex-shrink:0;background:var(--creme-escuro);box-shadow:inset 0 0 0 1px rgba(69,58,48,.08);}
+  .tabela-resumo-anual th:not(:first-child), .tabela-resumo-anual td:not(:first-child){text-align:center;font-variant-numeric:tabular-nums;}
+  .tabela-resumo-anual td:first-child{font-weight:700;color:var(--texto);}
+  .tabela-resumo-anual td:first-child .legenda-linha{margin-right:8px;vertical-align:middle;}
+  @media (max-width:640px){
+    .anual-resumo-grid{grid-template-columns:1fr;justify-items:center;}
+  }
 
   /* NF: tag "Enviar" (cliente quer receber a nota) */
   .tag-sim-nf{display:inline-block;padding:2px 8px;border-radius:8px;font-size:10.5px;font-weight:700;color:var(--marrom-escuro);background:var(--marrom-claro);white-space:nowrap;}
@@ -535,7 +546,7 @@
       <button data-aba="agendamentos">
         <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="16" rx="3.5" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 10h17" stroke="currentColor" stroke-width="1.8"/><path d="M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         <span>Agendamentos</span>
-        <span class="badge-aba" id="badge-atrasados" hidden></span>
+        <span class="badge-aba" id="badge-atrasados" hidden title="Contatos aguardando"></span>
       </button>
       <button data-aba="metas">
         <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>
@@ -578,14 +589,14 @@
 
       <div class="inicio-grid">
         <div class="painel-inicio" id="painel-agendados-hoje" hidden>
-          <h2><span class="ponto pt-verde"></span><span id="agendados-hoje-titulo">Agendados hoje</span><span class="contagem" id="agendados-hoje-contagem"></span></h2>
+          <h2><span class="ponto pt-verde"></span><span id="agendados-hoje-titulo">Agendei hoje</span><span class="contagem" id="agendados-hoje-contagem"></span></h2>
           <div id="lista-agendados-hoje"></div>
         </div>
 
         <div class="painel-inicio" id="painel-consultas-hoje" hidden>
-          <h2><span class="ponto pt-azul"></span><span id="consultas-hoje-titulo">Consultas hoje</span><span class="contagem" id="consultas-hoje-contagem"></span></h2>
+          <h2><span class="ponto pt-azul"></span><span id="consultas-hoje-titulo">Agendados para hoje</span><span class="contagem" id="consultas-hoje-contagem"></span></h2>
           <div id="lista-consultas-hoje"></div>
-          <p class="vazio-mini" id="consultas-hoje-vazio" hidden>Ninguém tem consulta marcada pra hoje.</p>
+          <p class="vazio-mini" id="consultas-hoje-vazio" hidden>Ninguém tem atendimento marcado pra hoje.</p>
         </div>
 
         <div class="painel-inicio" id="painel-pendentes" hidden>
@@ -695,11 +706,18 @@
       <div class="anual-destaques" id="anual-destaques"></div>
 
       <div class="painel-secao">
-        <h2>Gráfico anual</h2>
-        <div class="anual-legenda" id="anual-legenda"></div>
-        <div class="anual-grafico-wrap">
-          <svg id="grafico-anual" viewBox="0 0 720 260" preserveAspectRatio="none"></svg>
-          <div class="anual-tooltip" id="anual-tooltip"></div>
+        <h2>Resumo do ano</h2>
+        <div class="anual-resumo-grid">
+          <div class="anual-pizza-box">
+            <div class="anual-pizza" id="anual-pizza" title=""></div>
+            <div class="anual-legenda" id="anual-legenda"></div>
+          </div>
+          <div class="tabela-wrap compacta">
+            <table class="tabela-resumo-anual">
+              <thead><tr><th>Indicador</th><th>Total</th><th>%</th></tr></thead>
+              <tbody id="anual-resumo-corpo"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 

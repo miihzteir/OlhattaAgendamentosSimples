@@ -646,20 +646,16 @@ function renderTudo() {
   }
 }
 
-// Contador vermelho na aba "Agendamentos": quantos "Aguardando" já passaram do
-// dia marcado pra recontatar — aparece não importa em qual mês você esteja
-// olhando, pra nunca esquecer que tem atrasado sem precisar ir atrás.
+// Bolinha na aba "Agendamentos": quantos contatos estão com status
+// "Aguardando" no total (mesma contagem do painel "Contatos pendentes" da
+// Início) — aparece não importa em qual mês você esteja olhando, pra nunca
+// esquecer que tem gente esperando contato sem precisar ir atrás.
 function atualizarBadgeAtrasados() {
   const badge = document.getElementById('badge-atrasados');
   if (!badge) return;
-  const hoje = hojeStr();
-  const atrasados = state.entries.filter(e => {
-    if (e.status !== 'Aguardando') return false;
-    const data = e.dataAgendamento || e.dataContato || '';
-    return !!data && data < hoje;
-  }).length;
-  badge.textContent = atrasados;
-  badge.hidden = atrasados === 0;
+  const aguardando = state.entries.filter(e => e.status === 'Aguardando').length;
+  badge.textContent = aguardando;
+  badge.hidden = aguardando === 0;
 }
 
 function renderAba() {
@@ -1065,8 +1061,8 @@ function rotuloDataInicio() {
   return inicioData === hojeStr() ? 'hoje' : ('em ' + formatarData(inicioData));
 }
 
-// Quem ELA agendou NO DIA escolhido (dia em que falou com a pessoa/marcou o
-// agendamento), não importa pra quando ficou marcada a consulta — é só
+// Quem ELA agendou (ligou/foi procurada) NO DIA escolhido — painel "Agendei
+// hoje" —, não importa pra quando ficou marcado o atendimento em si; é só
 // informativo, com atalho pra editar caso precise ajustar algo
 function entriesAgendadosHoje() {
   return state.entries
@@ -1079,7 +1075,7 @@ function renderAgendadosHoje() {
   const contagem = document.getElementById('agendados-hoje-contagem');
   const lista = document.getElementById('lista-agendados-hoje');
   const titulo = document.getElementById('agendados-hoje-titulo');
-  if (titulo) titulo.textContent = 'Agendados ' + rotuloDataInicio();
+  if (titulo) titulo.textContent = 'Agendei ' + rotuloDataInicio();
   const hoje = hojeStr();
   const agendadosHoje = entriesAgendadosHoje();
 
@@ -1088,10 +1084,10 @@ function renderAgendadosHoje() {
   painel.hidden = false;
   contagem.textContent = agendadosHoje.length;
   lista.innerHTML = agendadosHoje.map(e => {
-    const consultaHoje = e.dataAgendamento === hoje;
+    const atendimentoHoje = e.dataAgendamento === hoje;
     const quando = e.dataAgendamento
-      ? (consultaHoje ? 'Consulta hoje' : 'Consulta em ' + formatarData(e.dataAgendamento)) + (e.horario ? ' às ' + escapeHtml(e.horario) : '')
-      : 'Sem data de consulta definida';
+      ? (atendimentoHoje ? 'Atendimento hoje' : 'Atendimento em ' + formatarData(e.dataAgendamento)) + (e.horario ? ' às ' + escapeHtml(e.horario) : '')
+      : 'Sem data de atendimento definida';
     return `
     <div class="pendente-item">
       <div class="pendente-info">
@@ -1111,9 +1107,10 @@ function renderAgendadosHoje() {
   });
 }
 
-// Quem TEM consulta marcada pro DIA escolhido (não importa quando foi
-// agendado) — ela confirma aqui se o cliente realmente veio; confirmando, já
-// marca Realizado
+// Quem TEM atendimento marcado pro DIA escolhido (não importa quando foi
+// agendado nem o tipo — consulta, cirurgia, acompanhamento, todos entram
+// aqui) — painel "Agendados para hoje"; ela confirma aqui se o cliente
+// realmente veio; confirmando, já marca Realizado
 function entriesConsultasHoje() {
   return state.entries
     .filter(e => e.status === 'Agendado' && e.dataAgendamento === inicioData)
@@ -1127,7 +1124,7 @@ function renderConsultasHoje() {
   const vazio = document.getElementById('consultas-hoje-vazio');
   const titulo = document.getElementById('consultas-hoje-titulo');
   const ehHoje = inicioData === hojeStr();
-  if (titulo) titulo.textContent = 'Consultas ' + rotuloDataInicio();
+  if (titulo) titulo.textContent = 'Agendados para ' + rotuloDataInicio();
   const consultasHoje = entriesConsultasHoje();
 
   painel.hidden = false;
@@ -1136,7 +1133,7 @@ function renderConsultasHoje() {
   if (consultasHoje.length === 0) {
     lista.innerHTML = '';
     if (vazio) vazio.hidden = false;
-    vazio.textContent = ehHoje ? 'Ninguém tem consulta marcada pra hoje.' : 'Ninguém tem consulta marcada pra ' + formatarData(inicioData) + '.';
+    vazio.textContent = ehHoje ? 'Ninguém tem atendimento marcado pra hoje.' : 'Ninguém tem atendimento marcado pra ' + formatarData(inicioData) + '.';
     return;
   }
   if (vazio) vazio.hidden = true;
@@ -2081,99 +2078,65 @@ function renderAnual() {
   const hoje = new Date();
   const mesAtualIdx = anoAnual === hoje.getFullYear() ? hoje.getMonth() : -1;
 
+  // valor em destaque (maior do mês) fica num <span> próprio — ver comentário
+  // da classe .valor-destaque no CSS: assim a bolinha não empurra o número e
+  // ele continua centralizado igual aos outros da mesma coluna
+  const celulaAnual = (valor, ehMaior) => ehMaior ? `<span class="valor-destaque">${valor}</span>` : valor;
+
   const linhasHtml = meses.map((m,i) => `
     <tr class="${i === mesAtualIdx ? 'mes-linha-atual' : ''}">
       <td class="mes-nome">${MESES_ABREV[i]}</td>
-      <td class="${m.contatos === maxPorCampo.contatos && m.contatos > 0 ? 'maior-valor' : ''}">${m.contatos}</td>
-      <td class="${m.consultas === maxPorCampo.consultas && m.consultas > 0 ? 'maior-valor' : ''}">${m.consultas}</td>
-      <td class="${m.cirurgias === maxPorCampo.cirurgias && m.cirurgias > 0 ? 'maior-valor' : ''}">${m.cirurgias}</td>
+      <td>${celulaAnual(m.contatos, m.contatos === maxPorCampo.contatos && m.contatos > 0)}</td>
+      <td>${celulaAnual(m.consultas, m.consultas === maxPorCampo.consultas && m.consultas > 0)}</td>
+      <td>${celulaAnual(m.cirurgias, m.cirurgias === maxPorCampo.cirurgias && m.cirurgias > 0)}</td>
     </tr>
   `).join('');
   document.getElementById('tabela-anual-corpo').innerHTML = linhasHtml;
 
-  renderGraficoAnual(meses, defs);
+  renderResumoAnual(meses, defs);
 }
 
-// ---- Gráfico do Comparativo Anual: uma linha por indicador, mês a mês ----
+// ---- Resumo do Comparativo Anual: pizza + tabela, lado a lado ----
 // Cores escolhidas e validadas pra quem tem daltonismo conseguir diferenciar
-// as 3 linhas mesmo sem olhar a legenda (não são as cores do tema do app).
+// os 3 indicadores mesmo sem olhar a legenda (não são as cores do tema do app).
 const CORES_ANUAL = { contatos: '#2a78d6', consultas: '#eb6834', cirurgias: '#1baf7a' };
 
-function escalaNiceMax(valor) {
-  if (valor <= 0) return 4;
-  const passos = [1, 2, 2.5, 5, 10];
-  const grandeza = Math.pow(10, Math.floor(Math.log10(valor)));
-  for (const p of passos) {
-    const candidato = p * grandeza;
-    if (candidato >= valor) return candidato;
-  }
-  return 10 * grandeza;
-}
-
-function renderGraficoAnual(meses, defs) {
-  const svg = document.getElementById('grafico-anual');
+// Antes era um gráfico de linhas (uma por indicador, mês a mês) — trocado por
+// pedido dela: ocupava altura demais, e o "Comparativo por mês" logo abaixo
+// já mostra o detalhe mês a mês. Agora é só o total do ano: uma pizza
+// (proporção entre os 3 indicadores) + uma tabela com os números exatos.
+function renderResumoAnual(meses, defs) {
+  const pizza = document.getElementById('anual-pizza');
   const legenda = document.getElementById('anual-legenda');
-  const tooltip = document.getElementById('anual-tooltip');
-  if (!svg || !legenda) return;
+  const corpoTabela = document.getElementById('anual-resumo-corpo');
+  if (!pizza || !legenda || !corpoTabela) return;
 
   legenda.innerHTML = defs.map(d => `<span class="legenda-item"><span class="legenda-linha" style="background:${CORES_ANUAL[d.campo]}"></span>${escapeHtml(d.label)}</span>`).join('');
 
-  const W = 720, H = 260, PAD_L = 32, PAD_R = 14, PAD_T = 14, PAD_B = 28;
-  const areaW = W - PAD_L - PAD_R, areaH = H - PAD_T - PAD_B;
-  const valorMax = escalaNiceMax(Math.max(0, ...meses.flatMap(m => defs.map(d => m[d.campo]))));
-  const xDe = i => PAD_L + (areaW * i) / 11;
-  const yDe = v => PAD_T + areaH - (areaH * v) / valorMax;
+  const totais = {};
+  defs.forEach(d => { totais[d.campo] = meses.reduce((s, m) => s + (m[d.campo] || 0), 0); });
+  const somaTotal = defs.reduce((s, d) => s + totais[d.campo], 0);
 
-  const NUM_FAIXAS = 4;
-  let grade = '';
-  for (let i = 0; i <= NUM_FAIXAS; i++) {
-    const v = Math.round((valorMax / NUM_FAIXAS) * i);
-    const y = yDe(v);
-    grade += `<line x1="${PAD_L}" y1="${y.toFixed(1)}" x2="${W - PAD_R}" y2="${y.toFixed(1)}" stroke="#EFE3D3" stroke-width="1"/>`;
-    grade += `<text x="${PAD_L - 6}" y="${(y + 3.5).toFixed(1)}" font-size="9.5" fill="#7A6A5C" text-anchor="end">${v}</text>`;
-  }
-
-  let rotulosMes = '';
-  meses.forEach((m, i) => {
-    rotulosMes += `<text x="${xDe(i).toFixed(1)}" y="${H - 8}" font-size="9.5" fill="#7A6A5C" text-anchor="middle">${MESES_ABREV[i]}</text>`;
-  });
-
-  let linhas = '';
-  defs.forEach(d => {
-    const cor = CORES_ANUAL[d.campo];
-    const pontos = meses.map((m, i) => `${xDe(i).toFixed(1)},${yDe(m[d.campo]).toFixed(1)}`).join(' ');
-    linhas += `<polyline points="${pontos}" fill="none" stroke="${cor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
-    meses.forEach((m, i) => {
-      linhas += `<circle cx="${xDe(i).toFixed(1)}" cy="${yDe(m[d.campo]).toFixed(1)}" r="4" fill="${cor}" stroke="#FFF8F2" stroke-width="2"></circle>`;
+  if (somaTotal === 0) {
+    pizza.style.background = 'var(--creme-escuro)';
+    pizza.title = 'Sem dados neste ano';
+  } else {
+    let acc = 0;
+    const fatias = defs.map(d => {
+      const de = acc;
+      const ate = acc + (totais[d.campo] / somaTotal) * 360;
+      acc = ate;
+      return `${CORES_ANUAL[d.campo]} ${de.toFixed(2)}deg ${ate.toFixed(2)}deg`;
     });
-  });
-
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.innerHTML = grade + linhas + rotulosMes +
-    `<line id="anual-crosshair" x1="${PAD_L}" y1="${PAD_T}" x2="${PAD_L}" y2="${H - PAD_B}" stroke="#C9AD8C" stroke-width="1" style="display:none"></line>`;
-
-  if (!tooltip) return;
-  function atualizarHover(clientX) {
-    const rect = svg.getBoundingClientRect();
-    if (!rect.width) return;
-    const escalaX = W / rect.width;
-    const xSvg = (clientX - rect.left) * escalaX;
-    let idx = Math.round(((xSvg - PAD_L) / areaW) * 11);
-    idx = Math.max(0, Math.min(11, idx));
-    const cx = xDe(idx);
-    const crosshair = document.getElementById('anual-crosshair');
-    if (crosshair) { crosshair.setAttribute('x1', cx); crosshair.setAttribute('x2', cx); crosshair.style.display = ''; }
-    tooltip.innerHTML = `<b>${MESES[idx]}</b>` + defs.map(d => `<div class="anual-tooltip-linha"><span class="legenda-linha" style="background:${CORES_ANUAL[d.campo]}"></span>${escapeHtml(d.label)}: <b>${meses[idx][d.campo]}</b></div>`).join('');
-    tooltip.style.display = 'block';
-    const xPix = cx / escalaX;
-    tooltip.style.left = Math.max(0, Math.min(rect.width - 170, xPix - 80)) + 'px';
+    pizza.style.background = `conic-gradient(${fatias.join(', ')})`;
+    pizza.title = defs.map(d => `${d.label}: ${totais[d.campo]}`).join(' · ');
   }
-  svg.onmousemove = ev => atualizarHover(ev.clientX);
-  svg.onmouseleave = () => {
-    const crosshair = document.getElementById('anual-crosshair');
-    if (crosshair) crosshair.style.display = 'none';
-    tooltip.style.display = 'none';
-  };
+
+  corpoTabela.innerHTML = defs.map(d => {
+    const total = totais[d.campo];
+    const pct = somaTotal ? Math.round((total / somaTotal) * 100) : 0;
+    return `<tr><td><span class="legenda-linha" style="background:${CORES_ANUAL[d.campo]}"></span>${escapeHtml(d.label)}</td><td>${total}</td><td>${pct}%</td></tr>`;
+  }).join('');
 }
 
 // ============================================================
