@@ -37,11 +37,20 @@
     --raio: 20px;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  /* barra de rolagem invisível em qualquer elemento que role (tabelas,
+     barra lateral, modais, sugestões de telefone etc.) — a rolagem continua
+     funcionando normal, só a "régua" visual some */
+  *{scrollbar-width:none;-ms-overflow-style:none;}
+  *::-webkit-scrollbar{width:0;height:0;display:none;}
   body{margin:0;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--creme);color:var(--texto);}
   h1,h2,h3,.fonte-titulo{font-family:'Quicksand','Nunito',sans-serif;}
   img{max-width:100%;}
   [hidden]{display:none!important;}
-  button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;outline-offset:2px;}
+  button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;outline-offset:2px;transition:transform .14s cubic-bezier(.34,1.56,.64,1),box-shadow .14s,filter .14s,background-color .14s,color .14s,border-color .14s;}
+  button:active{transform:scale(.93);}
+  @media (prefers-reduced-motion:reduce){
+    button, button:active, .btn:active, .card, .painel-inicio, .pill-toggle, .chip-periodo, .link-chip, .num-clicavel{transition:none!important;transform:none!important;}
+  }
   input,select,textarea{font-family:inherit;}
   a{-webkit-tap-highlight-color:transparent;}
 
@@ -82,7 +91,7 @@
   .abas-contexto strong{color:var(--verde-pinho-escuro);font-weight:700;}
   nav.abas{display:flex;flex-direction:column;gap:6px;padding:10px 14px;flex:1;}
   nav.abas button{display:flex;align-items:center;gap:10px;font-family:'Quicksand',sans-serif;padding:11px 16px;border:none;border-radius:14px;background:transparent;font-size:13.5px;font-weight:600;color:var(--texto-claro);white-space:nowrap;transition:.15s;text-align:left;width:100%;}
-  nav.abas button:hover{color:var(--verde-pinho);background:var(--creme-escuro);}
+  nav.abas button:hover{color:var(--verde-pinho);background:var(--creme-escuro);transform:translateX(2px);}
   nav.abas button.ativa{color:#fff;background:linear-gradient(120deg,var(--verde-pinho),var(--verde-pinho-escuro));box-shadow:0 6px 16px rgba(138,98,64,.35);}
   nav.abas button .icone-aba{flex-shrink:0;opacity:.85;}
   nav.abas button span:not(.badge-aba){flex:1;}
@@ -101,7 +110,7 @@
   .sync-status.erro{color:var(--vermelho);background:var(--vermelho-claro);}
   .sidebar-rodape-acoes{display:flex;gap:8px;}
   .icon-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--borda);background:var(--creme-escuro);color:var(--verde-pinho-escuro);display:flex;align-items:center;justify-content:center;font-size:15px;transition:.15s;}
-  .icon-btn:hover{background:var(--marrom-claro);}
+  .icon-btn:hover{background:var(--marrom-claro);transform:translateY(-2px) rotate(-4deg);}
   .sidebar-rodape-usuario{display:flex;align-items:center;justify-content:space-between;gap:8px;}
   .sidebar-rodape-usuario .email{font-size:11px;color:var(--texto-claro);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
   .btn-sair{padding:6px 13px;border-radius:9px;border:1px solid var(--borda);background:transparent;color:var(--texto);font-size:12px;font-weight:700;flex-shrink:0;}
@@ -110,16 +119,28 @@
   main{margin-left:228px;max-width:1560px;min-width:0;padding:22px 24px 60px;}
 
   /* ---------- NAVEGADOR DE MES ---------- */
-  .topo-aba{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:20px;position:relative;}
+  /* grid de 3 colunas (em vez de nav-mes centralizado + botão absoluto por
+     cima): assim o botão "+ Novo contato" nunca fica sobre o "Hoje" em
+     telas médias (tablet), onde antes a área ficava estreita demais pro
+     botão flutuante não encostar no nav-mes centralizado */
+  .topo-aba{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;margin-bottom:20px;}
+  .topo-aba .nav-mes{grid-column:2;}
   .nav-mes{display:flex;align-items:center;justify-content:center;gap:16px;}
   .nav-mes button{width:36px;height:36px;border-radius:50%;border:1px solid var(--borda);background:var(--branco);color:var(--verde-pinho);font-size:16px;}
   .nav-mes button:hover{background:var(--creme-escuro);}
   .nav-mes .rotulo{font-family:'Quicksand',sans-serif;font-size:20px;font-weight:700;color:var(--verde-pinho);min-width:180px;text-align:center;text-transform:capitalize;}
   .nav-mes .hoje{width:auto;height:auto;font-size:12px;padding:6px 14px;border-radius:20px;border:1px solid var(--marrom);color:var(--marrom-escuro);background:var(--branco);font-weight:600;white-space:nowrap;}
-  .btn-novo-destaque{position:absolute;right:0;top:50%;transform:translateY(-50%);white-space:nowrap;}
+  .btn-novo-destaque{grid-column:3;justify-self:end;white-space:nowrap;}
+  @media (max-width:900px){
+    /* tablet: sidebar ainda é a lateral fixa de sempre, mas com menos
+       largura sobrando vale a pena empilhar em vez de arriscar apertar */
+    .topo-aba{grid-template-columns:1fr;justify-items:stretch;gap:10px;}
+    .topo-aba .nav-mes{grid-column:1;}
+    .btn-novo-destaque{grid-column:1;justify-self:stretch;text-align:center;}
+  }
   @media (max-width:760px){
-    .topo-aba{flex-direction:column;align-items:stretch;}
-    .btn-novo-destaque{position:static;transform:none;width:100%;text-align:center;order:2;}
+    .topo-aba{display:flex;flex-direction:column;align-items:stretch;}
+    .btn-novo-destaque{width:100%;text-align:center;order:2;}
     .sidebar{position:sticky;top:0;left:auto;width:100%;height:auto;flex-direction:column;border-right:none;border-bottom:1px solid var(--borda);overflow-y:visible;}
     .sidebar-marca{padding:10px 14px;border-bottom:none;}
     .abas-contexto{display:none;}
@@ -134,7 +155,7 @@
   .chips-status{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
   .chip-status{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;border:1.5px solid transparent;background:var(--creme-escuro);color:var(--texto-claro);font-size:12.5px;font-weight:600;transition:.12s;}
   .chip-status b{font-weight:800;}
-  .chip-status:hover{filter:brightness(.97);}
+  .chip-status:hover{filter:brightness(.97);transform:translateY(-2px);}
   .chip-status.selecionado{border-color:currentColor;}
   .chip-status.agendado{background:var(--verde-ok-claro);color:var(--verde-ok);}
   .chip-status.realizado{background:var(--azul-claro);color:var(--azul);}
@@ -145,19 +166,23 @@
   /* ---------- CABEÇALHO DE PAINEL COM "RECOLHER" ---------- */
   .painel-secao-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px;}
   .painel-secao-header h2{margin:0;}
-  .btn-recolher{background:none;border:1px solid var(--borda);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;color:var(--texto-claro);white-space:nowrap;}
-  .btn-recolher:hover{background:var(--creme-escuro);color:var(--verde-pinho);}
+  .btn-recolher{background:none;border:1px solid var(--borda);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;color:var(--texto-claro);white-space:nowrap;transition:.15s;}
+  .btn-recolher:hover{background:var(--creme-escuro);color:var(--verde-pinho);transform:translateY(-2px);}
 
   /* ---------- CARDS GERAIS ---------- */
   .grid-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px;}
   .card{background:var(--branco);border:1px solid var(--borda);border-radius:var(--raio);padding:18px 20px;box-shadow:var(--sombra);transition:.15s;}
-  .card:hover{box-shadow:0 12px 26px rgba(138,98,64,.18);}
+  .card:hover{box-shadow:0 12px 26px rgba(138,98,64,.18);transform:translateY(-3px);}
   .card h3{margin:0 0 10px;font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--texto-claro);font-weight:700;}
   .card .num{font-family:'Quicksand',sans-serif;font-size:32px;font-weight:700;color:var(--verde-pinho);line-height:1;}
   .card .sub{font-size:12px;color:var(--texto-claro);margin-top:6px;}
   .card .linhas{display:flex;flex-direction:column;gap:6px;margin-top:2px;}
   .card .linha{display:flex;justify-content:space-between;font-size:13px;}
   .card .linha b{color:var(--verde-pinho);}
+  .num-clicavel{cursor:pointer;border-radius:7px;transition:.12s;}
+  .card .linha b.num-clicavel{padding:1px 7px;}
+  .num-clicavel:hover{background:var(--creme-escuro);color:var(--marrom-escuro);}
+  .card .num.num-clicavel:hover{background:transparent;text-decoration:underline;text-underline-offset:4px;}
   .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;}
   .pill-toggle{border:1.5px solid transparent;cursor:pointer;transition:.12s;font-family:'Nunito',sans-serif;}
   .pill-toggle:hover{filter:brightness(.95);transform:translateY(-1px);}
@@ -169,6 +194,11 @@
   .pill.aguardando{background:#FFF3DC;color:#8F6307;}
   .pill.feito{background:var(--verde-ok-claro);color:var(--verde-ok);}
   .pill.pendente{background:#FFF3DC;color:#8F6307;}
+  .pill.enviar{background:var(--azul-claro);color:var(--azul);}
+  .pill.naoenviar{background:var(--creme-escuro);color:var(--texto-claro);}
+  tr.linha-duplicada-nf td{background:#FFF8E8;}
+  tr.linha-duplicada-nf:hover td{background:#FFF3D6;}
+  .aviso-duplicada-nf{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;background:#FFE9B8;color:#8F6307;font-size:11px;font-weight:700;white-space:nowrap;}
   .tag-sem-nf{display:inline-block;padding:2px 8px;border-radius:8px;font-size:10.5px;font-weight:700;color:var(--texto-claro);background:var(--creme-escuro);white-space:nowrap;}
 
   .painel-secao{background:var(--branco);border:1px solid var(--borda);border-radius:var(--raio);padding:18px 20px;margin-bottom:20px;box-shadow:var(--sombra);}
@@ -187,6 +217,10 @@
   .painel-inicio h2 .ponto.pt-azul{background:var(--azul);}
   .painel-inicio h2 .ponto.pt-ambar{background:#8F6307;}
   .painel-inicio h2 .contagem{margin-left:auto;background:var(--creme-escuro);color:var(--texto-claro);font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;text-transform:none;letter-spacing:0;}
+  .painel-inicio-cabeca{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .painel-inicio-cabeca h2{margin:0;flex:1;min-width:0;}
+  .painel-inicio-acoes{display:flex;gap:6px;flex-shrink:0;}
+  .painel-inicio-acoes .btn-recolher{white-space:nowrap;}
 
   /* ---------- LINKS RÁPIDOS (barra fina, não é mais um painel grande —
      pra não poluir o topo da tela; Agendamentos e Notas Fiscais têm cada
@@ -194,13 +228,16 @@
   .links-rapidos{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;margin-bottom:18px;padding:0 2px;}
   .links-rapidos-label{font-family:'Quicksand',sans-serif;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--texto-claro);flex-shrink:0;}
   .links-uteis{display:flex;flex-wrap:wrap;gap:6px;}
-  .link-chip{display:flex;align-items:center;gap:1px;background:var(--creme-escuro);border-radius:999px;padding:4px 5px 4px 12px;transition:background .15s;}
-  .link-chip:hover{background:var(--marrom-claro);}
-  .link-chip a{color:var(--verde-pinho-escuro);font-weight:700;font-size:12.5px;text-decoration:none;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;}
+  .link-chip{display:flex;align-items:center;gap:1px;background:var(--verde-pinho);border-radius:999px;padding:4px 5px 4px 12px;transition:filter .15s,transform .15s;}
+  .link-chip:hover{filter:brightness(.92);transform:translateY(-1px);}
+  .link-chip:nth-child(4n+2){background:var(--marrom);}
+  .link-chip:nth-child(4n+3){background:var(--azul);}
+  .link-chip:nth-child(4n+4){background:#B4772B;}
+  .link-chip a{color:#fff;font-weight:700;font-size:12.5px;text-decoration:none;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;}
   .link-chip a:hover{text-decoration:underline;}
-  .link-acao{width:20px;height:20px;border-radius:50%;border:none;background:transparent;color:var(--texto-claro);font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.45;transition:.15s;}
+  .link-acao{width:20px;height:20px;border-radius:50%;border:none;background:transparent;color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.7;transition:.15s;}
   .link-chip:hover .link-acao, .link-acao:focus-visible{opacity:1;}
-  .link-acao:hover{background:var(--branco);color:var(--verde-pinho);opacity:1;}
+  .link-acao:hover{background:rgba(255,255,255,.25);color:#fff;opacity:1;}
   .link-add-btn{width:24px;height:24px;border-radius:50%;border:1px dashed var(--borda);background:transparent;color:var(--texto-claro);font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.15s;}
   .link-add-btn:hover{border-style:solid;border-color:var(--marrom);color:var(--marrom);background:var(--creme-escuro);}
   .vazio-mini{font-size:12px;color:var(--texto-claro);}
@@ -262,14 +299,15 @@
   .filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
   .filtros input[type=text], .filtros select{padding:10px 14px;border:1.5px solid var(--borda);border-radius:999px;font-size:13px;background:var(--branco);}
   .filtros input[type=text]{flex:1;min-width:180px;}
-  .btn{font-family:'Quicksand',sans-serif;padding:10px 18px;border-radius:999px;border:none;font-size:13px;font-weight:700;background:var(--verde-pinho);color:var(--creme);transition:.15s;}
-  .btn:hover{background:var(--verde-pinho-escuro);transform:translateY(-1px);}
+  .btn{font-family:'Quicksand',sans-serif;padding:10px 18px;border-radius:999px;border:none;font-size:13px;font-weight:700;background:var(--verde-pinho);color:var(--creme);}
+  .btn:hover{background:var(--verde-pinho-escuro);transform:translateY(-2px) scale(1.02);box-shadow:0 6px 14px rgba(138,98,64,.28);}
+  .btn:active{transform:scale(.94);box-shadow:none;}
   .btn.marrom{background:linear-gradient(120deg,var(--marrom-escuro),#2E4729);color:var(--creme);}
-  .btn.marrom:hover{background:#2E4729;}
+  .btn.marrom:hover{background:#2E4729;box-shadow:0 6px 14px rgba(46,71,41,.35);}
   .btn.outline{background:transparent;border:1.5px solid var(--borda);color:var(--texto);}
-  .btn.outline:hover{border-color:var(--verde-pinho);color:var(--verde-pinho);transform:translateY(-1px);}
+  .btn.outline:hover{border-color:var(--verde-pinho);color:var(--verde-pinho);transform:translateY(-2px) scale(1.02);box-shadow:0 6px 14px rgba(138,98,64,.16);}
   .btn.vermelho{background:var(--vermelho-claro);color:var(--vermelho);}
-  .btn.vermelho:hover{background:#F9D3D4;}
+  .btn.vermelho:hover{background:#F9D3D4;box-shadow:0 6px 14px rgba(209,85,92,.22);}
   .btn.sm{padding:6px 13px;font-size:12px;}
   .chip-periodo.ativo{background:var(--verde-pinho);color:var(--creme);border-color:var(--verde-pinho);}
   .chip-periodo.ativo:hover{background:var(--verde-pinho-escuro);color:var(--creme);}
@@ -321,6 +359,7 @@
      ficar mais alta que as outras por causa de um aviso */
   .badge-alerta{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:8px;font-size:10.5px;font-weight:700;color:#A8501E;background:#FFE9DD;white-space:nowrap;vertical-align:middle;}
   .badge-mesmo-contato{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:8px;font-size:10.5px;font-weight:700;color:var(--marrom-escuro);background:var(--creme-escuro);white-space:nowrap;vertical-align:middle;}
+  .badge-iniciativa-eu{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:8px;font-size:10.5px;font-weight:700;color:var(--azul);background:var(--azul-claro);white-space:nowrap;vertical-align:middle;}
   /* coluna de ações (Editar) fica grudada na direita, sempre visível, sem precisar
      arrastar a rolagem até o fim só pra achar o botão de editar */
   #painel-tabela td.acoes{position:sticky;right:0;background:var(--branco);box-shadow:-8px 0 10px -8px rgba(0,0,0,.2);}
@@ -354,6 +393,15 @@
   .linha2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .modal-acoes{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
   .historico-contato{background:var(--azul-claro);border:1px solid #D6DEEC;border-radius:10px;padding:10px 13px;font-size:12.5px;color:var(--azul);margin:-2px 0 13px;line-height:1.5;}
+  .historico-cabeca{font-weight:700;margin-bottom:7px;}
+  .historico-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px;}
+  .historico-lista li{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .historico-tipo{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--azul);background:rgba(255,255,255,.65);border-radius:999px;padding:2px 7px;flex-shrink:0;}
+  .historico-data{font-size:11.5px;color:var(--azul);opacity:.75;flex-shrink:0;}
+  .historico-desc{flex:1;min-width:120px;}
+  .historico-lista .pill{flex-shrink:0;}
+  .link-toggle{display:inline-block;background:none;border:none;color:var(--marrom-escuro);font-size:13px;font-weight:700;cursor:pointer;padding:2px 0 12px;text-decoration:underline;}
+  #bloco-tutor2{margin-top:-4px;}
   .sugestoes-tel{position:absolute;top:100%;left:0;right:0;background:var(--branco);border:1px solid var(--borda);border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,.14);z-index:6;max-height:210px;overflow-y:auto;margin-top:4px;}
   .sugestoes-tel button{display:block;width:100%;text-align:left;background:none;border:none;padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--borda);color:var(--texto);}
   .sugestoes-tel button:last-child{border-bottom:none;}
@@ -373,9 +421,15 @@
 
   /* anual */
   .anual-destaques{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
-  .stat-tile{border:1px solid var(--borda);border-radius:12px;padding:12px 14px;background:var(--creme);}
+  .stat-tile{border:1px solid var(--borda);border-left:4px solid var(--verde-pinho);border-radius:12px;padding:12px 14px;background:var(--branco);box-shadow:var(--sombra);}
   .stat-tile .rot{font-size:10px;text-transform:uppercase;color:var(--texto-claro);font-weight:700;letter-spacing:.4px;}
   .stat-tile .val{font-size:16px;font-weight:800;color:var(--verde-pinho);margin-top:4px;text-transform:capitalize;}
+  /* destaque do mês atual no "Comparativo por mês" (mesma ideia do destaque
+     da semana atual em Agendamentos) */
+  #tabela-anual-corpo tr:nth-child(even) td{background:transparent;}
+  #tabela-anual-corpo tr.mes-linha-atual td{background:var(--creme-escuro);}
+  #tabela-anual-corpo tr.mes-linha-atual td.mes-nome{font-weight:800;color:var(--marrom-escuro);}
+  #tabela-anual-corpo tr.mes-linha-atual td.mes-nome::after{content:'· atual';font-weight:600;font-size:11px;color:var(--marrom-escuro);margin-left:6px;text-transform:none;}
   #tabela-anual-corpo td.mes-nome{text-transform:capitalize;font-weight:700;color:var(--texto);}
   #tabela-anual-corpo td.maior-valor{font-weight:800;color:var(--verde-pinho);position:relative;}
   #tabela-anual-corpo td.maior-valor::after{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--marrom-claro);margin-left:7px;vertical-align:middle;}
@@ -457,7 +511,7 @@
       <div><strong>Agenda Olhatta</strong><span>Contatos &amp; Agendamentos</span></div>
     </div>
 
-    <div class="abas-contexto" id="abas-contexto">Hoje é <strong id="abas-data-hoje">—</strong></div>
+    <div class="abas-contexto" id="abas-contexto">Hoje é dia <strong id="abas-data-hoje">—</strong></div>
 
     <nav class="abas">
       <button class="ativa" data-aba="inicio">
@@ -521,8 +575,17 @@
         </div>
 
         <div class="painel-inicio" id="painel-pendentes" hidden>
-          <h2><span class="ponto pt-ambar"></span>Contatos pendentes<span class="contagem" id="pendentes-contagem"></span></h2>
-          <div id="lista-pendentes"></div>
+          <div class="painel-inicio-cabeca">
+            <h2><span class="ponto pt-ambar"></span>Contatos pendentes<span class="contagem" id="pendentes-contagem"></span></h2>
+            <div class="painel-inicio-acoes">
+              <button type="button" class="btn-recolher" id="btn-ordem-pendentes" title="Trocar ordem">Mais próximos ▾</button>
+              <button type="button" class="btn-recolher" id="btn-recolher-pendentes">Recolher ▾</button>
+            </div>
+          </div>
+          <div id="pendentes-conteudo">
+            <div id="lista-pendentes"></div>
+            <p class="vazio-mini" id="pendentes-vazio" hidden>Ninguém aguardando contato no momento.</p>
+          </div>
         </div>
       </div>
 
@@ -731,6 +794,11 @@
         <input type="checkbox" id="f-mesmo-contato">
         É outro animal do mesmo telefonema (tutor já ligou e agendou mais de um) — não conta como contato novo nas estatísticas
       </label>
+      <button type="button" class="link-toggle" id="btn-mostrar-tutor2">+ Tem outro responsável por este animal?</button>
+      <div class="linha2" id="bloco-tutor2" hidden>
+        <div class="campo"><label>Nome do outro responsável</label><input type="text" id="f-nome2"></div>
+        <div class="campo"><label>Telefone do outro responsável</label><input type="text" id="f-telefone2" placeholder="(00) 00000-0000" autocomplete="off"></div>
+      </div>
       <div class="linha2">
         <div class="campo"><label>Clínica</label><select id="f-clinica"></select></div>
         <div class="campo"><label>Cidade</label><select id="f-cidade"></select></div>
@@ -738,6 +806,13 @@
       <div class="linha2">
         <div class="campo"><label>Tipo</label><select id="f-tipo"></select></div>
         <div class="campo"><label>Data de contato</label><input type="date" id="f-datacontato"></div>
+      </div>
+      <div class="campo">
+        <label>Quem entrou em contato</label>
+        <select id="f-iniciativa">
+          <option value="cliente">Cliente entrou em contato</option>
+          <option value="eu">Eu entrei em contato (liguei pra ele)</option>
+        </select>
       </div>
       <div class="linha2">
         <div class="campo"><label>Status</label>
@@ -794,6 +869,7 @@
         <div class="campo"><label>Telefone</label><input type="text" id="nf-f-telefone" placeholder="(00) 00000-0000" autocomplete="off"></div>
         <div class="campo"><label>Animal</label><input type="text" id="nf-f-animal"></div>
       </div>
+      <div class="historico-contato" id="historico-nf" hidden></div>
       <div class="linha2">
         <div class="campo"><label>Cliente</label><input type="text" id="nf-f-cliente"></div>
         <div class="campo"><label>Cidade</label><select id="nf-f-cidade"></select></div>

@@ -60,6 +60,8 @@ let abaAtiva = 'inicio';
 let filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', periodo: '' };
 let nfFiltros = { busca: '', cidade: '', querNf: '' };
 let inicioData = hojeStr(); // data escolhida na aba Início (padrão: hoje)
+let ordemPendentes = 'asc'; // ordem de "Contatos pendentes": asc = mais próximos primeiro
+try { ordemPendentes = localStorage.getItem('agendaOlhatta_ordem_pendentes') === 'desc' ? 'desc' : 'asc'; } catch (e) { /* sem acesso ao localStorage — segue com asc */ }
 let ordenacao = { campo: null, asc: true }; // null = ordem padrão (por data)
 let unsubDoc = null;
 let unsubEntries = null;
@@ -233,6 +235,59 @@ function nfToggleFeito(entry) {
     .then(() => mostrarToast(novoFeito ? 'Nota marcada como feita' : 'Nota marcada como pendente'))
     .catch(err => mostrarToast('Não foi possível salvar: ' + err.message));
 }
+// Marca/desmarca "quer enviar a nota" com um clique só na tabela — a maioria
+// dos clientes não pede nota, então isso fica desmarcado por padrão (ver
+// criarNf/abrirModalNf) e ela só liga quando o cliente realmente pede
+function nfToggleQuerNf(entry) {
+  if (!entry) return;
+  const novoQuerNf = !entry.querNf;
+  const dados = Object.assign({}, entry, { querNf: novoQuerNf });
+  atualizarNf(entry.id, dados)
+    .then(() => mostrarToast(novoQuerNf ? 'Marcado pra enviar a nota' : 'Marcado pra não enviar a nota'))
+    .catch(err => mostrarToast('Não foi possível salvar: ' + err.message));
+}
+// Acha outro lançamento AINDA PENDENTE do mesmo cliente (mesmo telefone ou CPF),
+// pra sugerir unir os dois numa nota só. Nunca aponta pra um lançamento já feito —
+// se um dos dois já foi emitido, não tem como unir (ela confirmou essa regra).
+function nfDuplicataPendente(entry) {
+  if (!entry || entry.feito) return null;
+  const telNorm = normalizarTelefone(entry.telefone);
+  const cpfNorm = (entry.cpf || '').replace(/\D/g, '');
+  if (telNorm.length < 8 && cpfNorm.length !== 11) return null;
+  return state.nfEntries.find(e => {
+    if (e.id === entry.id || e.feito) return false;
+    const eTel = normalizarTelefone(e.telefone);
+    const eCpf = (e.cpf || '').replace(/\D/g, '');
+    return (telNorm.length >= 8 && eTel === telNorm) || (cpfNorm.length === 11 && eCpf === cpfNorm);
+  }) || null;
+}
+// Une dois lançamentos pendentes do mesmo cliente numa nota só, somando os
+// valores — pra ela não ter que calcular na mão quando o cliente faz 2 compras
+// separadas e ambas as notas ainda estão pendentes.
+function unirNfsPendentes(a, b) {
+  if (!a || !b || a.feito || b.feito) { mostrarToast('Só dá pra unir lançamentos que ainda estão pendentes'); return; }
+  const cobradoSoma = (Number(a.cobrado)||0) + (Number(b.cobrado)||0);
+  const splitsSoma = (Number(a.splits)||0) + (Number(b.splits)||0);
+  const valorNotaSoma = Math.max(0, cobradoSoma - splitsSoma);
+  const confirmado = confirm(
+    `Unir os 2 lançamentos pendentes de ${a.cliente || 'cliente'}?\n\n` +
+    `R$ ${formatarMoeda(a.cobrado)} + R$ ${formatarMoeda(b.cobrado)} = R$ ${formatarMoeda(cobradoSoma)} cobrado\n` +
+    `Nota ficará em R$ ${formatarMoeda(valorNotaSoma)}\n\n` +
+    `O outro lançamento (de ${formatarData(b.dataPagamento)}) será apagado e tudo somado neste.`
+  );
+  if (!confirmado) return;
+  const servicosUnidos = Array.from(new Set([].concat(a.servicos||[], b.servicos||[])));
+  const dados = Object.assign({}, a, {
+    cobrado: cobradoSoma,
+    splits: splitsSoma,
+    valorNota: valorNotaSoma,
+    servicos: servicosUnidos
+  });
+  atualizarNf(a.id, dados)
+    .then(() => excluirNf(b.id))
+    .then(() => mostrarToast('Lançamentos unidos numa nota só'))
+    .catch(err => mostrarToast('Não foi possível unir: ' + err.message));
+}
 function adicionarServico(valor) {
   return nfDocRef.update({ servicosSalvos: firebase.firestore.FieldValue.arrayUnion(valor) });
 }
@@ -324,6 +379,7 @@ function abrirModalLink(contexto, idx) {
   document.getElementById('link-f-url').value = l ? l.url||'' : '';
   document.getElementById('btn-excluir-link').hidden = !l;
   document.getElementById('modal-link').hidden = false;
+  document.getElementById('modal-link').scrollTop = 0;
 }
 function fecharModalLink() { document.getElementById('modal-link').hidden = true; }
 document.getElementById('btn-add-link').addEventListener('click', () => abrirModalLink('agendamentos', null));
@@ -401,6 +457,7 @@ function renderResultadosPesquisa(query) {
 }
 function abrirModalPesquisa() {
   document.getElementById('modal-pesquisa').hidden = false;
+  document.getElementById('modal-pesquisa').scrollTop = 0;
   const input = document.getElementById('pesquisa-universal-input');
   input.value = '';
   renderResultadosPesquisa('');
@@ -584,6 +641,7 @@ function renderTudo() {
   if (!document.getElementById('modal-categorias').hidden) renderCategoriasPainel();
   if (carregouNfDoc && carregouNfEntries) {
     if (abaAtiva === 'notas') renderNotas();
+    if (!document.getElementById('modal-nf').hidden) atualizarPainelHistoricoNf();
     if (!document.getElementById('modal-servicos').hidden) renderServicosLista();
   }
 }
@@ -748,13 +806,20 @@ document.getElementById('f-clinica').addEventListener('change', () => {
 // ============================================================
 // HISTÓRICO INTELIGENTE DE CONTATO REPETIDO
 // ============================================================
+// Um contato pode ter um segundo responsável (outro tutor do mesmo animal,
+// cada um com seu telefone) — então "bater o telefone" significa bater com
+// QUALQUER um dos dois, não só o principal.
+function entryBatesComTelefone(e, telNorm) {
+  return normalizarTelefone(e.telefone) === telNorm || normalizarTelefone(e.telefone2) === telNorm;
+}
+
 function buscarHistorico(telefone, nome) {
   const tel = normalizarTelefone(telefone);
   const nomeNorm = (nome || '').trim().toLowerCase();
   if (tel.length < 8 && !nomeNorm) return [];
   return state.entries.filter(e => {
     if (editingEntryId && e.id === editingEntryId) return false;
-    if (tel.length >= 8) return normalizarTelefone(e.telefone) === tel;
+    if (tel.length >= 8) return entryBatesComTelefone(e, tel);
     return (e.nome || '').trim().toLowerCase() === nomeNorm;
   });
 }
@@ -767,11 +832,72 @@ function ordenarPorDataRecente(lista) {
   });
 }
 
+// ---------- Histórico cruzado (Agendamentos + Notas Fiscais) por telefone ----------
+// Usado nos dois modais (contato e NF): quando o telefone digitado já apareceu
+// antes em QUALQUER um dos dois lados do app, mostra um mini cadastro com o
+// que já se sabe desse cliente, pra ela conferir antes de confirmar.
+function historicoCompletoPorTelefone(telefone) {
+  const tel = normalizarTelefone(telefone);
+  if (tel.length < 8) return { agendamentos: [], notas: [] };
+  const agendamentos = ordenarPorDataRecente(
+    state.entries.filter(e => !(editingEntryId && e.id === editingEntryId) && entryBatesComTelefone(e, tel))
+  );
+  const notas = state.nfEntries
+    .filter(e => !(editingNfId && e.id === editingNfId) && normalizarTelefone(e.telefone) === tel)
+    .slice()
+    .sort((a, b) => (b.dataPagamento || '').localeCompare(a.dataPagamento || ''));
+  return { agendamentos, notas };
+}
+
+function montarHistoricoHtml(telefone) {
+  const { agendamentos, notas } = historicoCompletoPorTelefone(telefone);
+  const total = agendamentos.length + notas.length;
+  if (!total) return '';
+
+  const itens = agendamentos.map(e => ({
+    tipo: 'Contato',
+    data: e.dataAgendamento || e.dataContato || '',
+    desc: `${e.animal || e.nome || 'sem nome'}${e.tipo ? ' · ' + e.tipo : ''}`,
+    statusTxt: e.status || '',
+    statusClasse: pillClasse(e.status)
+  })).concat(notas.map(e => ({
+    tipo: 'Nota',
+    data: e.dataPagamento || '',
+    desc: `${e.animal || 'sem animal'} · R$ ${formatarMoeda(e.valorNota)}`,
+    statusTxt: e.feito ? '✓ Feita' : 'Pendente',
+    statusClasse: e.feito ? 'feito' : 'pendente'
+  }))).sort((a, b) => (b.data || '').localeCompare(a.data || '')).slice(0, 5);
+
+  const linhas = itens.map(it => `
+    <li>
+      <span class="historico-tipo">${escapeHtml(it.tipo)}</span>
+      <span class="historico-data">${formatarData(it.data)}</span>
+      <span class="historico-desc">${escapeHtml(it.desc)}</span>
+      <span class="pill ${it.statusClasse}">${escapeHtml(it.statusTxt)}</span>
+    </li>`).join('');
+
+  return `
+    <div class="historico-cabeca">Histórico deste telefone — ${total} registro${total > 1 ? 's' : ''}</div>
+    <ul class="historico-lista">${linhas}</ul>
+  `;
+}
+
 function atualizarPainelHistorico() {
   const painel = document.getElementById('historico-contato');
   if (!painel) return;
   const telefone = document.getElementById('f-telefone').value;
   const nome = document.getElementById('f-nome').value;
+
+  // telefone com tamanho suficiente pra cruzar com notas fiscais também
+  if (normalizarTelefone(telefone).length >= 8) {
+    const html = montarHistoricoHtml(telefone);
+    painel.innerHTML = html;
+    painel.hidden = !html;
+    return;
+  }
+
+  // telefone ainda curto demais — mantém a checagem simples só por nome,
+  // só do lado de agendamentos (notas fiscais não têm esse campo "nome")
   const historico = buscarHistorico(telefone, nome);
   if (!historico.length) { painel.hidden = true; painel.innerHTML = ''; return; }
 
@@ -789,6 +915,18 @@ function atualizarPainelHistorico() {
   `;
 }
 
+// Mesma ideia do painel acima, só que do lado da Nota Fiscal — mostra tanto
+// outras notas desse telefone quanto os agendamentos dele, pro mini cadastro
+// aparecer nos dois lugares do app.
+function atualizarPainelHistoricoNf() {
+  const painel = document.getElementById('historico-nf');
+  if (!painel) return;
+  const telefone = document.getElementById('nf-f-telefone').value;
+  const html = montarHistoricoHtml(telefone);
+  painel.innerHTML = html;
+  painel.hidden = !html;
+}
+
 // Sugestões de telefone conforme digita (mesmo com só o DDD ou parte do número) —
 // ajuda a reconhecer quem já contatou antes sem precisar digitar o número inteiro.
 function buscarSugestoesTelefone(digitado) {
@@ -800,8 +938,11 @@ function buscarSugestoesTelefone(digitado) {
     if (editingEntryId && e.id === editingEntryId) return;
     const tel = (e.telefone || '').trim();
     const telNorm = normalizarTelefone(tel);
-    if (!tel || vistos.has(telNorm)) return;
-    if (telNorm.includes(alvo)) { vistos.add(telNorm); lista.push({ tel, nome: e.nome || '(sem nome)' }); }
+    if (tel && !vistos.has(telNorm) && telNorm.includes(alvo)) { vistos.add(telNorm); lista.push({ tel, nome: e.nome || '(sem nome)' }); }
+    // o segundo responsável (outro tutor do mesmo animal) também entra nas sugestões
+    const tel2 = (e.telefone2 || '').trim();
+    const tel2Norm = normalizarTelefone(tel2);
+    if (tel2 && !vistos.has(tel2Norm) && tel2Norm.includes(alvo)) { vistos.add(tel2Norm); lista.push({ tel: tel2, nome: e.nome2 || e.nome || '(sem nome)' }); }
   });
   return lista.slice(0, 6);
 }
@@ -899,9 +1040,12 @@ function renderInicio() {
   renderPainelPendentes();
   const vazio = document.getElementById('inicio-vazio');
   if (vazio) {
-    // painel-consultas-hoje agora nunca fica oculto (mostra estado vazio em vez de desaparecer)
-    const semNada = document.getElementById('painel-agendados-hoje').hidden
-      && document.getElementById('painel-pendentes').hidden;
+    // consultas-hoje e pendentes agora nunca ficam ocultos de verdade (mostram
+    // estado vazio em vez de desaparecer); então o aviso geral de "tudo em
+    // dia" olha os DADOS de cada um, não o atributo hidden do painel
+    const semNada = entriesAgendadosHoje().length === 0
+      && entriesConsultasHoje().length === 0
+      && entriesPendentes().length === 0;
     vazio.hidden = !semNada;
   }
 }
@@ -1014,28 +1158,42 @@ function renderConsultasHoje() {
 
 // Contatos com status "Aguardando" (a recontatar depois) — agora é um painel
 // só (aba Início), sem depender do mês selecionado em Agendamentos: mostra
-// todo mundo que está esperando contato, mais próximo primeiro.
-function renderPainelPendentes() {
-  const painel = document.getElementById('painel-pendentes');
-  const contagem = document.getElementById('pendentes-contagem');
-  const lista = document.getElementById('lista-pendentes');
-  const hoje = hojeStr();
-
-  // ordena pelo dia escolhido pra contatar de novo (dataAgendamento); contatos
-  // antigos sem esse dia definido caem no fim, ordenados pela data de contato
-  const pendentes = state.entries
+// todo mundo que está esperando contato, ordenado pela data programada de
+// recontato (dataAgendamento), na ordem escolhida (asc/desc, lembrada no
+// aparelho); contatos antigos sem essa data caem no fim, pela data de contato
+function entriesPendentes() {
+  const dir = ordemPendentes === 'desc' ? -1 : 1;
+  return state.entries
     .filter(e => e.status === 'Aguardando')
     .sort((a, b) => {
       const da = a.dataAgendamento || '9999-99-99';
       const db_ = b.dataAgendamento || '9999-99-99';
-      if (da !== db_) return da < db_ ? -1 : 1;
-      return (a.dataContato || '').localeCompare(b.dataContato || '');
+      if (da !== db_) return (da < db_ ? -1 : 1) * dir;
+      return (a.dataContato || '').localeCompare(b.dataContato || '') * dir;
     });
+}
 
-  if (pendentes.length === 0) { painel.hidden = true; return; }
+function renderPainelPendentes() {
+  const painel = document.getElementById('painel-pendentes');
+  const contagem = document.getElementById('pendentes-contagem');
+  const lista = document.getElementById('lista-pendentes');
+  const vazio = document.getElementById('pendentes-vazio');
+  const btnOrdem = document.getElementById('btn-ordem-pendentes');
+  const hoje = hojeStr();
+  const pendentes = entriesPendentes();
+
+  if (btnOrdem) btnOrdem.textContent = (ordemPendentes === 'desc' ? 'Mais distantes ▾' : 'Mais próximos ▾');
 
   painel.hidden = false;
   contagem.textContent = pendentes.length;
+
+  if (pendentes.length === 0) {
+    lista.innerHTML = '';
+    if (vazio) vazio.hidden = false;
+    return;
+  }
+  if (vazio) vazio.hidden = true;
+
   lista.innerHTML = pendentes.map(e => {
     const dataLembrete = e.dataAgendamento || '';
     const atrasado = dataLembrete && dataLembrete < hoje;
@@ -1069,21 +1227,21 @@ function renderCards(stats) {
 
   let htmlTipos = cat.tipos.map(t => {
     const s = stats.porTipo[t] || {agendados:0,naoAgendados:0,desmarcados:0};
-    return `<div class="linha"><span>${t}</span><b>${s.agendados}</b></div>`;
+    return `<div class="linha"><span>${escapeHtml(t)}</span><b class="num-clicavel" data-campo="tipo" data-valor="${escapeHtml(t)}">${s.agendados}</b></div>`;
   }).join('');
 
-  let htmlCidades = cat.cidades.map(c => `<div class="linha"><span>${c}</span><b>${stats.porCidade[c]||0}</b></div>`).join('');
-  let htmlClinicas = cat.clinicas.map(c => `<div class="linha"><span>${c}</span><b>${stats.porClinica[c]||0}</b></div>`).join('');
+  let htmlCidades = cat.cidades.map(c => `<div class="linha"><span>${escapeHtml(c)}</span><b class="num-clicavel" data-campo="cidade" data-valor="${escapeHtml(c)}">${stats.porCidade[c]||0}</b></div>`).join('');
+  let htmlClinicas = cat.clinicas.map(c => `<div class="linha"><span>${escapeHtml(c)}</span><b class="num-clicavel" data-campo="clinica" data-valor="${escapeHtml(c)}">${stats.porClinica[c]||0}</b></div>`).join('');
 
   const motivosComValor = Object.entries(stats.porMotivo).filter(([,v]) => v > 0);
   let htmlMotivos = motivosComValor.length
-    ? motivosComValor.map(([m,v]) => `<div class="linha"><span>${m}</span><b>${v}</b></div>`).join('')
+    ? motivosComValor.map(([m,v]) => `<div class="linha"><span>${escapeHtml(m)}</span><b class="num-clicavel" data-campo="motivo" data-valor="${escapeHtml(m)}">${v}</b></div>`).join('')
     : '<div class="sub">Nenhum registro</div>';
 
   cont.innerHTML = `
     <div class="card">
       <h3>Contatos no mês</h3>
-      <div class="num">${stats.total}</div>
+      <div class="num num-clicavel" data-campo="total" data-valor="">${stats.total}</div>
       <div class="sub">${stats.desmarques} desmarque(s) · ${stats.naoAgendados} não agendou(aram)</div>
     </div>
     <div class="card">
@@ -1103,6 +1261,39 @@ function renderCards(stats) {
       <div class="linhas">${htmlMotivos}</div>
     </div>
   `;
+
+  cont.querySelectorAll('.num-clicavel').forEach(el => {
+    el.addEventListener('click', () => irParaTabelaComFiltro(el.dataset.campo, el.dataset.valor));
+  });
+}
+
+// Clicar num número de resumo ("Agendados por tipo", "Contatos por clínica"
+// etc.) leva direto pra tabela de Agendamentos já filtrada por aquele
+// critério, sem precisar de outra aba — ela já existe na mesma tela
+function irParaTabelaComFiltro(campo, valor) {
+  filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', periodo: '' };
+  if (campo === 'tipo') { filtros.tipo = valor; filtros.status = 'Agendado'; }
+  else if (campo === 'cidade') { filtros.cidade = valor; filtros.status = 'Agendado'; }
+  else if (campo === 'clinica') { filtros.clinica = valor; }
+  else if (campo === 'motivo') { filtros.motivo = valor; }
+  // campo === 'total': só limpa os filtros mesmo, mostra o mês inteiro
+
+  const busca = document.getElementById('filtro-busca');
+  if (busca) busca.value = '';
+  const selStatus = document.getElementById('filtro-status'); if (selStatus) selStatus.value = filtros.status;
+  const selTipo = document.getElementById('filtro-tipo'); if (selTipo) selTipo.value = filtros.tipo;
+  const selCidade = document.getElementById('filtro-cidade'); if (selCidade) selCidade.value = filtros.cidade;
+  const selClinica = document.getElementById('filtro-clinica'); if (selClinica) selClinica.value = filtros.clinica;
+  const selMotivo = document.getElementById('filtro-motivo'); if (selMotivo) selMotivo.value = filtros.motivo;
+  document.getElementById('btn-filtro-7dias').classList.remove('ativo');
+
+  const mesKey = mesKeyDe(currentDate);
+  renderTabela(mesKey);
+  renderChipsStatus(mesKey);
+  atualizarBotaoLimparFiltros();
+
+  const painel = document.getElementById('painel-tabela');
+  if (painel) painel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function renderSemanas(stats, mesKey) {
@@ -1280,6 +1471,15 @@ function configurarPainelRecolhivel(idBotao, idConteudo, chave) {
   });
 }
 configurarPainelRecolhivel('toggle-semanas', 'semanas-wrap', 'agendaOlhatta_colapsar_semanas');
+configurarPainelRecolhivel('btn-recolher-pendentes', 'pendentes-conteudo', 'agendaOlhatta_colapsar_pendentes');
+
+// Trocar a ordem de "Contatos pendentes" (mais próximos primeiro / mais
+// distantes primeiro), lembrando a escolha no aparelho
+document.getElementById('btn-ordem-pendentes').addEventListener('click', () => {
+  ordemPendentes = ordemPendentes === 'desc' ? 'asc' : 'desc';
+  try { localStorage.setItem('agendaOlhatta_ordem_pendentes', ordemPendentes); } catch (e) { /* segue sem lembrar a preferência */ }
+  renderPainelPendentes();
+});
 
 document.querySelectorAll('#painel-tabela th.th-ordenavel').forEach(th => {
   th.addEventListener('click', () => {
@@ -1385,7 +1585,7 @@ function renderTabela(mesKey) {
     const jaAgendado = STATUS_AGENDADOS.includes(e.status);
     return `
     <tr data-id="${e.id}" class="${ehHoje ? 'linha-hoje' : ''}">
-      <td><span class="avatar-mini">${escapeHtml(iniciais(e.nome))}</span>${escapeHtml(e.nome||'')}${desmarques >= 2 ? `<span class="badge-alerta">já desmarcou ${desmarques}x</span>` : ''}${e.mesmoContatoOutroAnimal ? `<span class="badge-mesmo-contato">mesmo telefonema</span>` : ''}</td>
+      <td><span class="avatar-mini">${escapeHtml(iniciais(e.nome))}</span>${escapeHtml(e.nome||'')}${desmarques >= 2 ? `<span class="badge-alerta">já desmarcou ${desmarques}x</span>` : ''}${e.mesmoContatoOutroAnimal ? `<span class="badge-mesmo-contato">mesmo telefonema</span>` : ''}${e.iniciativa === 'eu' ? `<span class="badge-iniciativa-eu">eu que liguei</span>` : ''}</td>
       <td>${telefoneClicavel(e.telefone)}</td>
       <td>${escapeHtml(e.animal||'')}</td>
       <td>${escapeHtml(e.clinica||'')}</td>
@@ -1483,6 +1683,7 @@ function abrirModalTexto(titulo, texto) {
   document.getElementById('modal-texto-titulo').textContent = titulo || '';
   document.getElementById('modal-texto-corpo').textContent = texto || '';
   document.getElementById('modal-texto').hidden = false;
+  document.getElementById('modal-texto').scrollTop = 0;
 }
 document.getElementById('fechar-modal-texto').addEventListener('click', () => {
   document.getElementById('modal-texto').hidden = true;
@@ -1559,6 +1760,14 @@ function atualizarVisibilidadeMotivo() {
   document.getElementById('label-detalhe-motivo').textContent = ehAguardando ? 'Observação (opcional)' : 'Detalhes do motivo';
   document.getElementById('f-data2-label').textContent = precisaMotivo ? 'Data do desmarque/contato' : (ehAguardando ? 'Contatar novamente em' : 'Data de agendamento');
 
+  // ao marcar como Agendado/Realizado, a data já nasce no dia de hoje (então
+  // ano e mês já ficam certos) — ela só precisa trocar o dia (ou o mês/ano,
+  // se o agendamento for em outro período), sem digitar tudo do zero toda vez
+  const campoData2 = document.getElementById('f-data2');
+  if (STATUS_AGENDADOS.includes(status) && !campoData2.value) {
+    campoData2.value = hojeStr();
+  }
+
   // horário só faz sentido quando realmente existe um agendamento (marcado ou já realizado);
   // só esconde o campo (não apaga o valor, caso ela troque o status e volte)
   document.getElementById('campo-horario').hidden = !STATUS_AGENDADOS.includes(status);
@@ -1587,6 +1796,13 @@ document.getElementById('f-nome').addEventListener('input', atualizarPainelHisto
 document.getElementById('f-telefone').addEventListener('input', atualizarPainelHistorico);
 document.getElementById('f-telefone').addEventListener('blur', autopreencherPorTelefone);
 
+document.getElementById('btn-mostrar-tutor2').addEventListener('click', () => {
+  const bloco = document.getElementById('bloco-tutor2');
+  bloco.hidden = !bloco.hidden;
+  document.getElementById('btn-mostrar-tutor2').textContent = bloco.hidden ? '+ Tem outro responsável por este animal?' : '− Outro responsável';
+  if (!bloco.hidden) document.getElementById('f-nome2').focus();
+});
+
 function abrirModalEntry(entry) {
   popularSelects();
   editingEntryId = entry ? entry.id : null;
@@ -1597,11 +1813,21 @@ function abrirModalEntry(entry) {
   document.getElementById('f-telefone').value = entry ? entry.telefone||'' : '';
   document.getElementById('f-animal').value = entry ? entry.animal||'' : '';
   document.getElementById('f-mesmo-contato').checked = entry ? !!entry.mesmoContatoOutroAnimal : false;
+  document.getElementById('f-nome2').value = entry ? entry.nome2||'' : '';
+  document.getElementById('f-telefone2').value = entry ? entry.telefone2||'' : '';
+  // se já tinha um segundo responsável salvo, mostra o bloco já aberto;
+  // num contato novo (ou sem isso preenchido), começa recolhido
+  const temTutor2 = !!(entry && (entry.nome2 || entry.telefone2));
+  document.getElementById('bloco-tutor2').hidden = !temTutor2;
+  document.getElementById('btn-mostrar-tutor2').textContent = temTutor2 ? '− Outro responsável' : '+ Tem outro responsável por este animal?';
   document.getElementById('f-indicacao').value = entry ? entry.indicacao||'' : '';
   document.getElementById('f-clinica').value = entry ? entry.clinica||'' : (state.categorias.clinicas[0]||'');
   document.getElementById('f-cidade').value = entry ? entry.cidade||'' : (state.categorias.cidades[0]||'');
   document.getElementById('f-tipo').value = entry ? entry.tipo||'' : (state.categorias.tipos[0]||'');
   document.getElementById('f-datacontato').value = entry ? entry.dataContato||'' : hojeStr();
+  // padrão é o cliente entrar em contato com a clínica — é o caso mais comum;
+  // só muda pra "Eu entrei em contato" quando ela mesma ligou pro cliente
+  document.getElementById('f-iniciativa').value = entry ? entry.iniciativa || 'cliente' : 'cliente';
   // contato novo começa como "Aguardando" — só vira Agendado/Realizado/etc quando
   // ela de fato decidir o que aconteceu com esse contato
   document.getElementById('f-status').value = entry ? entry.status||'Agendado' : 'Aguardando';
@@ -1614,6 +1840,7 @@ function abrirModalEntry(entry) {
   atualizarPainelHistorico();
 
   document.getElementById('modal-entry').hidden = false;
+  document.getElementById('modal-entry').scrollTop = 0;
 }
 function fecharModalEntry() {
   document.getElementById('modal-entry').hidden = true;
@@ -1633,6 +1860,7 @@ function duplicarContato(entry) {
   document.getElementById('f-clinica').value = entry.clinica || (state.categorias.clinicas[0]||'');
   document.getElementById('f-cidade').value = entry.cidade || (state.categorias.cidades[0]||'');
   document.getElementById('f-datacontato').value = entry.dataContato || hojeStr();
+  document.getElementById('f-iniciativa').value = entry.iniciativa || 'cliente';
   document.getElementById('f-mesmo-contato').checked = true;
   atualizarPainelHistorico();
   document.getElementById('f-animal').focus();
@@ -1652,10 +1880,13 @@ document.getElementById('form-entry').addEventListener('submit', ev => {
     nome: document.getElementById('f-nome').value.trim(),
     telefone: document.getElementById('f-telefone').value.trim(),
     animal: document.getElementById('f-animal').value.trim(),
+    nome2: document.getElementById('f-nome2').value.trim(),
+    telefone2: document.getElementById('f-telefone2').value.trim(),
     indicacao: document.getElementById('f-indicacao').value.trim(),
     clinica: document.getElementById('f-clinica').value,
     cidade: document.getElementById('f-cidade').value,
     tipo: document.getElementById('f-tipo').value,
+    iniciativa: document.getElementById('f-iniciativa').value || 'cliente',
     dataContato: document.getElementById('f-datacontato').value || hojeStr(),
     mesmoContatoOutroAnimal: document.getElementById('f-mesmo-contato').checked,
     status: status,
@@ -1698,6 +1929,7 @@ const CAT_LABELS = { clinicas: 'Clínicas', cidades: 'Cidades', tipos: 'Tipos', 
 document.getElementById('btn-categorias').addEventListener('click', () => {
   renderCategoriasPainel();
   document.getElementById('modal-categorias').hidden = false;
+  document.getElementById('modal-categorias').scrollTop = 0;
 });
 document.getElementById('fechar-modal-categorias').addEventListener('click', () => {
   document.getElementById('modal-categorias').hidden = true;
@@ -1791,12 +2023,13 @@ function renderAnual() {
   const destaquesHtml = defs.map(d => {
     const maisD = destaque(meses, d.campo, 'max');
     const menosD = destaque(meses, d.campo, 'min');
+    const cor = CORES_ANUAL[d.campo];
     return `
-      <div class="stat-tile">
+      <div class="stat-tile" style="border-left-color:${cor}">
         <div class="rot">Mês com mais ${d.label}</div>
         <div class="val">${maisD ? MESES_ABREV[Number(maisD.mesKey.slice(5,7))-1].toLowerCase() + ' (' + maisD[d.campo] + ')' : '—'}</div>
       </div>
-      <div class="stat-tile">
+      <div class="stat-tile" style="border-left-color:${cor}">
         <div class="rot">Mês com menos ${d.label}</div>
         <div class="val">${menosD ? MESES_ABREV[Number(menosD.mesKey.slice(5,7))-1].toLowerCase() + ' (' + menosD[d.campo] + ')' : '—'}</div>
       </div>
@@ -1807,8 +2040,11 @@ function renderAnual() {
   const maxPorCampo = {};
   defs.forEach(d => { maxPorCampo[d.campo] = Math.max(0, ...meses.map(m => m[d.campo])); });
 
+  const hoje = new Date();
+  const mesAtualIdx = anoAnual === hoje.getFullYear() ? hoje.getMonth() : -1;
+
   const linhasHtml = meses.map((m,i) => `
-    <tr>
+    <tr class="${i === mesAtualIdx ? 'mes-linha-atual' : ''}">
       <td class="mes-nome">${MESES_ABREV[i]}</td>
       <td class="${m.contatos === maxPorCampo.contatos && m.contatos > 0 ? 'maior-valor' : ''}">${m.contatos}</td>
       <td class="${m.consultas === maxPorCampo.consultas && m.consultas > 0 ? 'maior-valor' : ''}">${m.consultas}</td>
@@ -2010,9 +2246,10 @@ document.getElementById('nf-filtro-busca').addEventListener('blur', () => {
 // Monta a linha de um lançamento — usada nas duas tabelonas (feitas/pendentes)
 function linhaNf(e) {
   const servicosTxt = (e.servicos||[]).join(', ');
+  const duplicata = nfDuplicataPendente(e);
   return `
-    <tr data-id="${e.id}">
-      <td><span class="avatar-mini">${escapeHtml(iniciais(e.cliente))}</span>${escapeHtml(e.cliente||'')}</td>
+    <tr data-id="${e.id}" class="${duplicata ? 'linha-duplicada-nf' : ''}">
+      <td><span class="avatar-mini">${escapeHtml(iniciais(e.cliente))}</span>${escapeHtml(e.cliente||'')}${duplicata ? '<span class="aviso-duplicada-nf" title="Este cliente tem outro lançamento pendente">⚠ outra nota pendente</span>' : ''}</td>
       <td>${escapeHtml(e.animal||'')}</td>
       <td>${telefoneClicavel(e.telefone)}</td>
       <td>${escapeHtml(e.cidade||'')}</td>
@@ -2021,9 +2258,9 @@ function linhaNf(e) {
       <td>${escapeHtml(e.pagamento||'')}</td>
       <td>R$ ${formatarMoeda(e.cobrado)}</td>
       <td>R$ ${formatarMoeda(e.valorNota)}</td>
-      <td>${e.querNf ? '<span class="tag-sim-nf">Enviar</span>' : ''}</td>
+      <td><button type="button" class="pill-toggle pill ${e.querNf ? 'enviar' : 'naoenviar'} btn-toggle-quernf" title="Clique pra marcar ${e.querNf ? 'pra não enviar' : 'pra enviar'}">${e.querNf ? 'Enviar' : 'Não enviar'}</button></td>
       <td><button type="button" class="pill-toggle pill ${e.feito ? 'feito' : 'pendente'} btn-toggle-feito" title="Clique pra marcar ${e.feito ? 'como pendente' : 'como feito'}">${e.feito ? '✓ Feito' : 'Pendente'}</button></td>
-      <td class="acoes"><button class="btn outline sm btn-editar-nf">Editar</button></td>
+      <td class="acoes">${duplicata ? `<button type="button" class="btn marrom sm btn-unir-nf" data-duplicata="${duplicata.id}" title="Somar este lançamento com o outro pendente deste cliente">🔗 Unir notas</button>` : ''}<button class="btn outline sm btn-editar-nf">Editar</button></td>
     </tr>
   `;
 }
@@ -2039,10 +2276,23 @@ function renderGrupoNf(idCorpo, idVazio, lista) {
       nfToggleFeito(state.nfEntries.find(e => e.id === id));
     });
   });
+  corpo.querySelectorAll('.btn-toggle-quernf').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('tr').dataset.id;
+      nfToggleQuerNf(state.nfEntries.find(e => e.id === id));
+    });
+  });
   corpo.querySelectorAll('.btn-editar-nf').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.closest('tr').dataset.id;
       abrirModalNf(state.nfEntries.find(e => e.id === id));
+    });
+  });
+  corpo.querySelectorAll('.btn-unir-nf').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('tr').dataset.id;
+      const outroId = btn.dataset.duplicata;
+      unirNfsPendentes(state.nfEntries.find(e => e.id === id), state.nfEntries.find(e => e.id === outroId));
     });
   });
 }
@@ -2102,7 +2352,9 @@ function abrirModalNf(entry) {
   document.getElementById('nf-f-cobrado').value = entry && entry.cobrado ? formatarMoedaInput(entry.cobrado) : '';
   document.getElementById('nf-f-splits').value = entry && entry.splits ? formatarMoedaInput(entry.splits) : '';
   document.getElementById('nf-f-pagamento').value = entry ? entry.pagamento||'PIX' : 'PIX';
-  document.getElementById('nf-f-quer-nf').checked = entry ? !!entry.querNf : true;
+  // a maioria dos clientes não pede nota — então por padrão vem desmarcado,
+  // ela só liga quando o cliente realmente pedir
+  document.getElementById('nf-f-quer-nf').checked = entry ? !!entry.querNf : false;
   document.getElementById('nf-f-nome').value = entry ? entry.nomeNf||'' : '';
   document.getElementById('nf-f-cpf').value = entry ? entry.cpf||'' : '';
   document.getElementById('nf-f-cep').value = entry ? entry.cep||'' : '';
@@ -2125,11 +2377,14 @@ function abrirModalNf(entry) {
   nfChipsRender();
   nfAtualizarValorNota();
   nfAtualizarVisibilidadeDadosNf();
+  atualizarPainelHistoricoNf();
 
   document.getElementById('modal-nf').hidden = false;
+  document.getElementById('modal-nf').scrollTop = 0;
 }
 function fecharModalNf() {
   document.getElementById('modal-nf').hidden = true;
+  document.getElementById('historico-nf').hidden = true;
 }
 
 function nfChipsRender() {
@@ -2278,6 +2533,7 @@ function autopreencherNf() {
 }
 document.getElementById('nf-f-telefone').addEventListener('blur', autopreencherNf);
 document.getElementById('nf-f-cpf').addEventListener('blur', autopreencherNf);
+document.getElementById('nf-f-telefone').addEventListener('input', atualizarPainelHistoricoNf);
 
 // Botões "copiar" ao lado dos campos de dados da nota fiscal
 document.querySelectorAll('.btn-copiar').forEach(btn => {
@@ -2355,6 +2611,7 @@ document.getElementById('btn-excluir-nf').addEventListener('click', () => {
 document.getElementById('nf-btn-servicos').addEventListener('click', () => {
   renderServicosLista();
   document.getElementById('modal-servicos').hidden = false;
+  document.getElementById('modal-servicos').scrollTop = 0;
 });
 document.getElementById('fechar-modal-servicos').addEventListener('click', () => {
   document.getElementById('modal-servicos').hidden = true;
