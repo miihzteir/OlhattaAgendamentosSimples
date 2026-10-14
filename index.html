@@ -223,7 +223,11 @@
   .painel-inicio h2 .ponto.pt-ambar{background:#8F6307;}
   .painel-inicio h2 .contagem{margin-left:auto;background:var(--creme-escuro);color:var(--texto-claro);font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;text-transform:none;letter-spacing:0;}
   .painel-inicio-cabeca{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
-  .painel-inicio-cabeca h2{margin:0;flex:1;min-width:0;}
+  /* título nunca quebra linha sozinho dentro do cabeçalho — se não tem espaço
+     pros dois (título + botões Mais próximos/Recolher) na mesma linha, o
+     cabeçalho inteiro quebra pra 2 linhas (botões embaixo), em vez do texto
+     do título quebrar e ficar por baixo dos botões */
+  .painel-inicio-cabeca h2{margin:0;flex:1;white-space:nowrap;}
   .painel-inicio-acoes{display:flex;gap:6px;flex-shrink:0;}
   .painel-inicio-acoes .btn-recolher{white-space:nowrap;}
 
@@ -440,6 +444,11 @@
   /* destaque do mês atual no "Comparativo por mês" (mesma ideia do destaque
      da semana atual em Agendamentos) */
   .tabela-anual{table-layout:fixed;}
+  /* "Consultas/Acomp." não tem espaço (é uma palavra só com uma barra no
+     meio), então sem isso o navegador não acha onde quebrar linha e o texto
+     vaza por cima da coluna vizinha (Cirurgias) no celular, onde a coluna
+     fica bem estreita — isso força a quebra em qualquer ponto se precisar */
+  .tabela-anual th, .tabela-anual td{overflow-wrap:anywhere;}
   .tabela-anual th:first-child, .tabela-anual td:first-child{width:76px;border-right:1px solid var(--borda);}
   .tabela-anual th:not(:first-child), .tabela-anual td:not(:first-child){text-align:center;font-variant-numeric:tabular-nums;}
   #tabela-anual-corpo tr:nth-child(even) td{background:transparent;}
