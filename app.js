@@ -57,7 +57,7 @@ let editingEntryId = null;
 let editingNfId = null;
 let nfNomeSincronizado = true; // enquanto true, "Nome completo (NF)" copia o que for digitado em "Cliente"
 let abaAtiva = 'inicio';
-let filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', periodo: '' };
+let filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', iniciativa: '', periodo: '' };
 let nfFiltros = { busca: '', cidade: '', querNf: '', periodo: '', dataInicio: '', dataFim: '' };
 let inicioData = hojeStr(); // data escolhida na aba Início (padrão: hoje)
 let ordemPendentes = 'asc'; // ordem de "Contatos pendentes": asc = mais próximos primeiro
@@ -611,6 +611,11 @@ function statsDoMes(mesKey) {
   motivos.forEach(m => { porMotivo[m] = 0; });
   naoAgendadosLista.forEach(e => { if (e.motivo) porMotivo[e.motivo] = (porMotivo[e.motivo]||0) + 1; });
 
+  // quantos contatos do mês foram ela quem ligou vs o cliente quem procurou
+  // (campo "Quem entrou em contato" do formulário, padrão é "cliente")
+  const porIniciativa = { eu: 0, cliente: 0 };
+  contatos.forEach(e => { if (e.iniciativa === 'eu') porIniciativa.eu++; else porIniciativa.cliente++; });
+
   const porSemana = [0,0,0,0,0];
   contatos.forEach(e => {
     const sem = semanaDoMes(e.dataContato);
@@ -623,7 +628,7 @@ function statsDoMes(mesKey) {
   const naoAgendados = naoAgendadosLista.filter(e => e.status === 'Não Agendou').length;
 
   return {
-    total: contatos.length, porTipo, porCidade, porClinica, porMotivo, porSemana,
+    total: contatos.length, porTipo, porCidade, porClinica, porMotivo, porIniciativa, porSemana,
     consultasEAcompanhamentos, cirurgias, desmarques, naoAgendados
   };
 }
@@ -650,10 +655,13 @@ function renderTudo() {
 // "Aguardando" no total (mesma contagem do painel "Contatos pendentes" da
 // Início) — aparece não importa em qual mês você esteja olhando, pra nunca
 // esquecer que tem gente esperando contato sem precisar ir atrás.
+// "mesmo telefonema" (2º+ animal da mesma ligação) não conta de novo aqui —
+// senão uma família com 2 bichos aguardando aparecia como 2 pendências em
+// vez de 1, mesma lógica já usada em "Contatos no mês".
 function atualizarBadgeAtrasados() {
   const badge = document.getElementById('badge-atrasados');
   if (!badge) return;
-  const aguardando = state.entries.filter(e => e.status === 'Aguardando').length;
+  const aguardando = state.entries.filter(e => e.status === 'Aguardando' && !e.mesmoContatoOutroAnimal).length;
   badge.textContent = aguardando;
   badge.hidden = aguardando === 0;
 }
@@ -1191,7 +1199,10 @@ function renderPainelPendentes() {
   if (btnOrdem) btnOrdem.textContent = (ordemPendentes === 'desc' ? 'Mais distantes ▾' : 'Mais próximos ▾');
 
   painel.hidden = false;
-  contagem.textContent = pendentes.length;
+  // a bolinha conta pessoas/ligações pendentes, não bichos — um "mesmo
+  // telefonema" (2º+ animal da mesma ligação) não soma de novo aqui, mesmo
+  // continuando listado embaixo pra dar pra editar cada um
+  contagem.textContent = pendentes.filter(e => !e.mesmoContatoOutroAnimal).length;
 
   if (pendentes.length === 0) {
     lista.innerHTML = '';
@@ -1251,6 +1262,13 @@ function renderCards(stats) {
       <div class="sub">${stats.desmarques} desmarque(s) · ${stats.naoAgendados} não agendou(aram)</div>
     </div>
     <div class="card">
+      <h3>Quem entrou em contato</h3>
+      <div class="linhas">
+        <div class="linha"><span>Cliente entrou em contato</span><b class="num-clicavel" data-campo="iniciativa" data-valor="cliente">${stats.porIniciativa.cliente}</b></div>
+        <div class="linha"><span>Eu entrei em contato</span><b class="num-clicavel" data-campo="iniciativa" data-valor="eu">${stats.porIniciativa.eu}</b></div>
+      </div>
+    </div>
+    <div class="card">
       <h3>Agendados por tipo</h3>
       <div class="linhas">${htmlTipos || '<div class="sub">Sem categorias</div>'}</div>
     </div>
@@ -1277,11 +1295,12 @@ function renderCards(stats) {
 // etc.) leva direto pra tabela de Agendamentos já filtrada por aquele
 // critério, sem precisar de outra aba — ela já existe na mesma tela
 function irParaTabelaComFiltro(campo, valor) {
-  filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', periodo: '' };
+  filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', iniciativa: '', periodo: '' };
   if (campo === 'tipo') { filtros.tipo = valor; filtros.status = 'Agendado'; }
   else if (campo === 'cidade') { filtros.cidade = valor; filtros.status = 'Agendado'; }
   else if (campo === 'clinica') { filtros.clinica = valor; }
   else if (campo === 'motivo') { filtros.motivo = valor; }
+  else if (campo === 'iniciativa') { filtros.iniciativa = valor; }
   // campo === 'total': só limpa os filtros mesmo, mostra o mês inteiro
 
   const busca = document.getElementById('filtro-busca');
@@ -1307,7 +1326,7 @@ function irParaTabelaComFiltro(campo, valor) {
 function irParaMesAnual(mesKey) {
   const [ano, mes] = mesKey.split('-').map(Number);
   currentDate = new Date(ano, mes - 1, 1);
-  filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', periodo: '' };
+  filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', iniciativa: '', periodo: '' };
   const busca = document.getElementById('filtro-busca'); if (busca) busca.value = '';
   const selStatus = document.getElementById('filtro-status'); if (selStatus) selStatus.value = '';
   const selTipo = document.getElementById('filtro-tipo'); if (selTipo) selTipo.value = '';
@@ -1417,7 +1436,7 @@ function onMetaInputChange(ev) {
 
 // ---------- Filtros ----------
 function atualizarBotaoLimparFiltros() {
-  const algumAtivo = !!(filtros.busca || filtros.status || filtros.tipo || filtros.cidade || filtros.clinica || filtros.motivo || filtros.periodo);
+  const algumAtivo = !!(filtros.busca || filtros.status || filtros.tipo || filtros.cidade || filtros.clinica || filtros.motivo || filtros.iniciativa || filtros.periodo);
   document.getElementById('btn-limpar-filtros').hidden = !algumAtivo;
 }
 
@@ -1468,7 +1487,7 @@ document.getElementById('btn-limpar-filtros').addEventListener('click', () => {
   document.getElementById('filtro-clinica').value = '';
   document.getElementById('filtro-motivo').value = '';
   document.getElementById('btn-filtro-7dias').classList.remove('ativo');
-  filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', periodo: '' };
+  filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', iniciativa: '', periodo: '' };
   renderTabela(mesKeyDe(currentDate));
   renderChipsStatus(mesKeyDe(currentDate));
   atualizarBotaoLimparFiltros();
@@ -1540,6 +1559,7 @@ function renderTabela(mesKey) {
   if (filtros.cidade) lista = lista.filter(e => e.cidade === filtros.cidade);
   if (filtros.clinica) lista = lista.filter(e => e.clinica === filtros.clinica);
   if (filtros.motivo) lista = lista.filter(e => e.motivo === filtros.motivo);
+  if (filtros.iniciativa) lista = lista.filter(e => (e.iniciativa || 'cliente') === filtros.iniciativa);
   if (filtros.busca) {
     const q = filtros.busca;
     const qDigitos = q.replace(/\D/g, '');
