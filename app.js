@@ -58,7 +58,7 @@ let editingNfId = null;
 let nfNomeSincronizado = true; // enquanto true, "Nome completo (NF)" copia o que for digitado em "Cliente"
 let abaAtiva = 'inicio';
 let filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', periodo: '' };
-let nfFiltros = { busca: '', cidade: '', querNf: '' };
+let nfFiltros = { busca: '', cidade: '', querNf: '', periodo: '', dataInicio: '', dataFim: '' };
 let inicioData = hojeStr(); // data escolhida na aba Início (padrão: hoje)
 let ordemPendentes = 'asc'; // ordem de "Contatos pendentes": asc = mais próximos primeiro
 try { ordemPendentes = localStorage.getItem('agendaOlhatta_ordem_pendentes') === 'desc' ? 'desc' : 'asc'; } catch (e) { /* sem acesso ao localStorage — segue com asc */ }
@@ -885,6 +885,15 @@ function montarHistoricoHtml(telefone) {
 function atualizarPainelHistorico() {
   const painel = document.getElementById('historico-contato');
   if (!painel) return;
+
+  // marcando Desmarcou/Não Agendou, ela só quer marcar rápido — sem o painel
+  // de histórico aparecendo no meio do caminho
+  if (STATUS_NAO_AGENDADOS.includes(document.getElementById('f-status').value)) {
+    painel.hidden = true;
+    painel.innerHTML = '';
+    return;
+  }
+
   const telefone = document.getElementById('f-telefone').value;
   const nome = document.getElementById('f-nome').value;
 
@@ -1294,6 +1303,24 @@ function irParaTabelaComFiltro(campo, valor) {
 
   const painel = document.getElementById('painel-tabela');
   if (painel) painel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Clicar num quadro de destaque do Comparativo Anual ("Mês com mais/menos X")
+// leva direto pro mês correspondente na aba Agendamentos, já sem filtro nenhum
+function irParaMesAnual(mesKey) {
+  const [ano, mes] = mesKey.split('-').map(Number);
+  currentDate = new Date(ano, mes - 1, 1);
+  filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', periodo: '' };
+  const busca = document.getElementById('filtro-busca'); if (busca) busca.value = '';
+  const selStatus = document.getElementById('filtro-status'); if (selStatus) selStatus.value = '';
+  const selTipo = document.getElementById('filtro-tipo'); if (selTipo) selTipo.value = '';
+  const selCidade = document.getElementById('filtro-cidade'); if (selCidade) selCidade.value = '';
+  const selClinica = document.getElementById('filtro-clinica'); if (selClinica) selClinica.value = '';
+  const selMotivo = document.getElementById('filtro-motivo'); if (selMotivo) selMotivo.value = '';
+  const btn7 = document.getElementById('btn-filtro-7dias'); if (btn7) btn7.classList.remove('ativo');
+  abaAtiva = 'agendamentos';
+  renderAba();
+  atualizarBotaoLimparFiltros();
 }
 
 function renderSemanas(stats, mesKey) {
@@ -1768,9 +1795,18 @@ function atualizarVisibilidadeMotivo() {
     campoData2.value = hojeStr();
   }
 
+  // ao marcar Desmarcou/Não Agendou, esconde o campo de data — ela não quer
+  // ficar vendo/preenchendo isso nesses casos; a gravação continua registrando
+  // hoje automaticamente (ver o submit do formulário), só não aparece na tela
+  document.getElementById('campo-data2').hidden = precisaMotivo;
+
   // horário só faz sentido quando realmente existe um agendamento (marcado ou já realizado);
   // só esconde o campo (não apaga o valor, caso ela troque o status e volte)
   document.getElementById('campo-horario').hidden = !STATUS_AGENDADOS.includes(status);
+
+  // Desmarcou/Não Agendou também não deve mostrar o histórico de "contato
+  // repetido" — ela só quer marcar rápido, sem esse painel aparecendo
+  atualizarPainelHistorico();
 }
 
 document.getElementById('f-motivo').addEventListener('change', ev => {
@@ -1836,8 +1872,7 @@ function abrirModalEntry(entry) {
   document.getElementById('f-motivo').value = entry ? entry.motivo||'' : (state.categorias.motivos[0]||'');
   document.getElementById('f-detalhe-motivo').value = entry ? entry.detalheMotivo||'' : '';
   document.getElementById('f-obs').value = entry ? entry.obs||'' : '';
-  atualizarVisibilidadeMotivo();
-  atualizarPainelHistorico();
+  atualizarVisibilidadeMotivo(); // também atualiza o painel de histórico
 
   document.getElementById('modal-entry').hidden = false;
   document.getElementById('modal-entry').scrollTop = 0;
@@ -2023,19 +2058,22 @@ function renderAnual() {
   const destaquesHtml = defs.map(d => {
     const maisD = destaque(meses, d.campo, 'max');
     const menosD = destaque(meses, d.campo, 'min');
-    const cor = CORES_ANUAL[d.campo];
     return `
-      <div class="stat-tile" style="border-left-color:${cor}">
+      <div class="stat-tile${maisD ? ' stat-tile-clicavel' : ''}"${maisD ? ` data-mes="${maisD.mesKey}" title="Ver ${MESES[Number(maisD.mesKey.slice(5,7))-1].toLowerCase()} em Agendamentos"` : ''}>
         <div class="rot">Mês com mais ${d.label}</div>
         <div class="val">${maisD ? MESES_ABREV[Number(maisD.mesKey.slice(5,7))-1].toLowerCase() + ' (' + maisD[d.campo] + ')' : '—'}</div>
       </div>
-      <div class="stat-tile" style="border-left-color:${cor}">
+      <div class="stat-tile${menosD ? ' stat-tile-clicavel' : ''}"${menosD ? ` data-mes="${menosD.mesKey}" title="Ver ${MESES[Number(menosD.mesKey.slice(5,7))-1].toLowerCase()} em Agendamentos"` : ''}>
         <div class="rot">Mês com menos ${d.label}</div>
         <div class="val">${menosD ? MESES_ABREV[Number(menosD.mesKey.slice(5,7))-1].toLowerCase() + ' (' + menosD[d.campo] + ')' : '—'}</div>
       </div>
     `;
   }).join('');
-  document.getElementById('anual-destaques').innerHTML = destaquesHtml;
+  const contDestaques = document.getElementById('anual-destaques');
+  contDestaques.innerHTML = destaquesHtml;
+  contDestaques.querySelectorAll('.stat-tile-clicavel').forEach(el => {
+    el.addEventListener('click', () => irParaMesAnual(el.dataset.mes));
+  });
 
   const maxPorCampo = {};
   defs.forEach(d => { maxPorCampo[d.campo] = Math.max(0, ...meses.map(m => m[d.campo])); });
@@ -2149,6 +2187,42 @@ function entriesNfDoMes(mesKey) {
   return state.nfEntries.filter(e => mesDe(e.dataPagamento) === mesKey);
 }
 
+// Filtro rápido "Últimos 7 dias" pra Notas Fiscais, mesma ideia do atalho
+// equivalente em Agendamentos: ignora o mês selecionado e olha os últimos
+// 7 dias corridos (hoje incluso) pela data de pagamento
+function entriesNfUltimos7Dias() {
+  const hoje = new Date();
+  const limite = new Date(hoje);
+  limite.setDate(limite.getDate() - 6);
+  const hojeStrVal = hojeStr();
+  const limiteStr = limite.getFullYear() + '-' + pad2(limite.getMonth()+1) + '-' + pad2(limite.getDate());
+  return state.nfEntries.filter(e => {
+    const data = e.dataPagamento || '';
+    return !!data && data >= limiteStr && data <= hojeStrVal;
+  });
+}
+
+// Período customizado "do dia tal até dia tal" — qualquer uma das duas
+// pontas pode ficar em aberto (só "a partir de" ou só "até")
+function entriesNfPeriodoCustom(dataInicio, dataFim) {
+  if (!dataInicio && !dataFim) return [];
+  return state.nfEntries.filter(e => {
+    const data = e.dataPagamento || '';
+    if (!data) return false;
+    if (dataInicio && data < dataInicio) return false;
+    if (dataFim && data > dataFim) return false;
+    return true;
+  });
+}
+
+// Lista base da tabela de Notas Fiscais: por mês normalmente, ou um dos
+// atalhos de período (últimos 7 dias / intervalo customizado) quando ativos
+function listaBaseNf(mesKey) {
+  if (nfFiltros.periodo === '7dias') return entriesNfUltimos7Dias();
+  if (nfFiltros.periodo === 'custom') return entriesNfPeriodoCustom(nfFiltros.dataInicio, nfFiltros.dataFim);
+  return entriesNfDoMes(mesKey);
+}
+
 function formatarMoeda(v) {
   const n = Number(v) || 0;
   return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -2243,6 +2317,41 @@ document.getElementById('nf-filtro-busca').addEventListener('blur', () => {
   }, 200);
 });
 
+// Atalho "Últimos 7 dias" e período customizado (do dia tal até dia tal)
+// pra Notas Fiscais — os dois são mutuamente exclusivos entre si e com o mês
+// selecionado; escolher um limpa o outro
+function atualizarUiPeriodoNf() {
+  document.getElementById('nf-btn-filtro-7dias').classList.toggle('ativo', nfFiltros.periodo === '7dias');
+  document.getElementById('nf-btn-limpar-periodo').hidden = !nfFiltros.periodo;
+}
+document.getElementById('nf-btn-filtro-7dias').addEventListener('click', () => {
+  nfFiltros.periodo = nfFiltros.periodo === '7dias' ? '' : '7dias';
+  nfFiltros.dataInicio = '';
+  nfFiltros.dataFim = '';
+  document.getElementById('nf-filtro-data-inicio').value = '';
+  document.getElementById('nf-filtro-data-fim').value = '';
+  atualizarUiPeriodoNf();
+  renderTabelaNf(mesKeyDe(nfCurrentDate));
+});
+['nf-filtro-data-inicio', 'nf-filtro-data-fim'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    nfFiltros.dataInicio = document.getElementById('nf-filtro-data-inicio').value;
+    nfFiltros.dataFim = document.getElementById('nf-filtro-data-fim').value;
+    nfFiltros.periodo = (nfFiltros.dataInicio || nfFiltros.dataFim) ? 'custom' : '';
+    atualizarUiPeriodoNf();
+    renderTabelaNf(mesKeyDe(nfCurrentDate));
+  });
+});
+document.getElementById('nf-btn-limpar-periodo').addEventListener('click', () => {
+  nfFiltros.periodo = '';
+  nfFiltros.dataInicio = '';
+  nfFiltros.dataFim = '';
+  document.getElementById('nf-filtro-data-inicio').value = '';
+  document.getElementById('nf-filtro-data-fim').value = '';
+  atualizarUiPeriodoNf();
+  renderTabelaNf(mesKeyDe(nfCurrentDate));
+});
+
 // Monta a linha de um lançamento — usada nas duas tabelonas (feitas/pendentes)
 function linhaNf(e) {
   const servicosTxt = (e.servicos||[]).join(', ');
@@ -2300,7 +2409,7 @@ function renderGrupoNf(idCorpo, idVazio, lista) {
 // Duas tabelonas separadas (feitas / pendentes) pra não misturar visualmente —
 // o mesmo lançamento aparece numa ou noutra dependendo só do campo "feito"
 function renderTabelaNf(mesKey) {
-  let lista = entriesNfDoMes(mesKey);
+  let lista = listaBaseNf(mesKey);
   if (nfFiltros.cidade) lista = lista.filter(e => e.cidade === nfFiltros.cidade);
   if (nfFiltros.querNf === 'sim') lista = lista.filter(e => !!e.querNf);
   if (nfFiltros.querNf === 'nao') lista = lista.filter(e => !e.querNf);

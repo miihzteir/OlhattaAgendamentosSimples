@@ -49,7 +49,7 @@
   button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;outline-offset:2px;transition:transform .14s cubic-bezier(.34,1.56,.64,1),box-shadow .14s,filter .14s,background-color .14s,color .14s,border-color .14s;}
   button:active{transform:scale(.93);}
   @media (prefers-reduced-motion:reduce){
-    button, button:active, .btn:active, .card, .painel-inicio, .pill-toggle, .chip-periodo, .link-chip, .num-clicavel{transition:none!important;transform:none!important;}
+    button, button:active, .btn:active, .card, .painel-inicio, .pill-toggle, .chip-periodo, .link-chip, .num-clicavel, .stat-tile-clicavel{transition:none!important;transform:none!important;}
   }
   input,select,textarea{font-family:inherit;}
   a{-webkit-tap-highlight-color:transparent;}
@@ -101,8 +101,10 @@
   .tel-link:hover{color:var(--verde-pinho-escuro);}
 
   /* rodapé da barra lateral: status de sincronização, atalhos (pesquisa,
-     categorias, atualizar) e conta (e-mail + sair) */
-  .sidebar-rodape{margin-top:auto;border-top:1px solid var(--borda);padding:14px 16px;display:flex;flex-direction:column;gap:10px;flex-shrink:0;}
+     categorias, atualizar) e conta (e-mail + sair). Fica fora do <aside>
+     no HTML (que é só marca+abas) e grudado no rodapé por conta própria,
+     assim no celular ele não faz parte do bloco que fica fixo ao rolar */
+  .sidebar-rodape{position:fixed;left:0;bottom:0;width:228px;z-index:21;background:var(--branco);border-top:1px solid var(--borda);border-right:1px solid var(--borda);padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
   .sync-status{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:5px;align-self:flex-start;}
   .sync-status::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;}
   .sync-status.ok{color:var(--verde-ok);background:var(--verde-ok-claro);}
@@ -141,12 +143,15 @@
   @media (max-width:760px){
     .topo-aba{display:flex;flex-direction:column;align-items:stretch;}
     .btn-novo-destaque{width:100%;text-align:center;order:2;}
-    .sidebar{position:sticky;top:0;left:auto;width:100%;height:auto;flex-direction:column;border-right:none;border-bottom:1px solid var(--borda);overflow-y:visible;}
+    /* só a marca + as abas (o <aside>) ficam grudadas no topo ao rolar; o
+       rodapé (sincronizado, pesquisar, sair) não é mais fixo, então ele
+       rola junto com a página em vez de sobrepor o conteúdo o tempo todo */
+    .sidebar{position:sticky;top:0;left:auto;width:100%;height:auto;flex-direction:column;border-right:none;border-bottom:1px solid var(--borda);overflow-y:visible;box-shadow:0 2px 8px rgba(138,98,64,.08);}
     .sidebar-marca{padding:10px 14px;border-bottom:none;}
     .abas-contexto{display:none;}
     nav.abas{flex-direction:row;padding:0 14px 10px;overflow-x:auto;gap:8px;flex:none;}
     nav.abas button{width:auto;border-radius:999px;padding:9px 16px;}
-    .sidebar-rodape{flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap;border-top:1px solid var(--borda);padding:10px 14px;margin-top:0;gap:8px;}
+    .sidebar-rodape{position:static;left:auto;bottom:auto;width:100%;z-index:auto;border-right:none;flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap;border-top:1px solid var(--borda);padding:10px 14px;margin-top:0;gap:8px;}
     .sidebar-rodape-usuario{order:3;width:100%;justify-content:space-between;}
     main{margin-left:0;max-width:none;padding:18px 16px 60px;}
   }
@@ -311,6 +316,8 @@
   .btn.sm{padding:6px 13px;font-size:12px;}
   .chip-periodo.ativo{background:var(--verde-pinho);color:var(--creme);border-color:var(--verde-pinho);}
   .chip-periodo.ativo:hover{background:var(--verde-pinho-escuro);color:var(--creme);}
+  .periodo-custom{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--texto-claro);}
+  .periodo-custom input[type=date]{padding:9px 10px;border:1.5px solid var(--borda);border-radius:999px;font-size:12.5px;background:var(--branco);color:var(--texto);font-family:inherit;}
 
   .tabela-wrap{overflow-x:auto;border:1px solid var(--borda);border-radius:var(--raio);background:var(--branco);cursor:grab;}
   .tabela-wrap.arrastando{cursor:grabbing;user-select:none;}
@@ -421,11 +428,17 @@
 
   /* anual */
   .anual-destaques{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
-  .stat-tile{border:1px solid var(--borda);border-left:4px solid var(--verde-pinho);border-radius:12px;padding:12px 14px;background:var(--branco);box-shadow:var(--sombra);}
+  .stat-tile{border:1px solid var(--borda);border-radius:12px;padding:12px 14px;background:var(--branco);box-shadow:var(--sombra);transition:.15s;}
   .stat-tile .rot{font-size:10px;text-transform:uppercase;color:var(--texto-claro);font-weight:700;letter-spacing:.4px;}
   .stat-tile .val{font-size:16px;font-weight:800;color:var(--verde-pinho);margin-top:4px;text-transform:capitalize;}
+  .stat-tile-clicavel{cursor:pointer;}
+  .stat-tile-clicavel:hover{transform:translateY(-3px);box-shadow:0 12px 26px rgba(138,98,64,.18);border-color:var(--verde-pinho-claro);}
+  .stat-tile-clicavel:active{transform:scale(.96);}
   /* destaque do mês atual no "Comparativo por mês" (mesma ideia do destaque
      da semana atual em Agendamentos) */
+  .tabela-anual{table-layout:fixed;}
+  .tabela-anual th:first-child, .tabela-anual td:first-child{width:76px;}
+  .tabela-anual th:not(:first-child), .tabela-anual td:not(:first-child){text-align:right;font-variant-numeric:tabular-nums;}
   #tabela-anual-corpo tr:nth-child(even) td{background:transparent;}
   #tabela-anual-corpo tr.mes-linha-atual td{background:var(--creme-escuro);}
   #tabela-anual-corpo tr.mes-linha-atual td.mes-nome{font-weight:800;color:var(--marrom-escuro);}
@@ -470,9 +483,10 @@
     .painel-inicio{padding:13px 15px;}
     .inicio-grid{gap:10px;}
     .inicio-topo{flex-direction:column;align-items:stretch;}
-    .inicio-topo .btn{width:100%;text-align:center;}
+    .inicio-topo > .btn{width:100%;text-align:center;}
     .inicio-data-sel{width:100%;}
-    .inicio-data-sel input[type=date]{flex:1;min-width:0;}
+    .inicio-data-sel input[type=date]{flex:1;min-width:132px;}
+    .inicio-data-sel .btn{flex-shrink:0;}
     /* no celular a tela é estreita; Editar e Duplicar lado a lado tomavam
        metade da largura visível da tabela — empilhados ficam bem mais estreitos */
     #painel-tabela td.acoes{flex-direction:column;gap:4px;padding:8px;}
@@ -536,6 +550,7 @@
         <span>Notas Fiscais</span>
       </button>
     </nav>
+  </aside>
 
     <div class="sidebar-rodape">
       <span class="sync-status ok" id="sync-status">Sincronizado</span>
@@ -549,7 +564,6 @@
         <button class="btn-sair" id="btn-logout">Sair</button>
       </div>
     </div>
-  </aside>
 
   <main>
     <!-- ---------- ABA INÍCIO ---------- -->
@@ -692,7 +706,7 @@
       <div class="painel-secao">
         <h2>Comparativo por mês</h2>
         <div class="tabela-wrap compacta">
-          <table>
+          <table class="tabela-anual">
             <thead><tr><th>Mês</th><th>Contatos</th><th>Consultas/Acomp.</th><th>Cirurgias</th></tr></thead>
             <tbody id="tabela-anual-corpo"></tbody>
           </table>
@@ -728,6 +742,13 @@
             <option value="sim">Quer nota</option>
             <option value="nao">Não quer nota</option>
           </select>
+          <button type="button" class="btn outline sm chip-periodo" id="nf-btn-filtro-7dias">Últimos 7 dias</button>
+          <div class="periodo-custom" id="nf-periodo-custom">
+            <input type="date" id="nf-filtro-data-inicio" title="De">
+            <span>até</span>
+            <input type="date" id="nf-filtro-data-fim" title="Até">
+          </div>
+          <button type="button" class="btn outline sm" id="nf-btn-limpar-periodo" hidden>Limpar período</button>
           <button class="btn outline" id="nf-btn-servicos">Gerenciar serviços</button>
           <button class="btn marrom" id="nf-btn-novo">+ Novo lançamento</button>
         </div>
@@ -824,7 +845,7 @@
             <option value="Aguardando">Aguardando (contatar de novo depois)</option>
           </select>
         </div>
-        <div class="campo"><label id="f-data2-label">Data de agendamento</label><input type="date" id="f-data2"></div>
+        <div class="campo" id="campo-data2"><label id="f-data2-label">Data de agendamento</label><input type="date" id="f-data2"></div>
       </div>
       <div class="campo" id="campo-horario" hidden><label>Horário do agendamento (opcional)</label><input type="time" id="f-horario"></div>
       <div id="campo-motivo" hidden>
