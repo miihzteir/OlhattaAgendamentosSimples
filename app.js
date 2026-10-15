@@ -1310,6 +1310,7 @@ function irParaTabelaComFiltro(campo, valor) {
   const selCidade = document.getElementById('filtro-cidade'); if (selCidade) selCidade.value = filtros.cidade;
   const selClinica = document.getElementById('filtro-clinica'); if (selClinica) selClinica.value = filtros.clinica;
   const selMotivo = document.getElementById('filtro-motivo'); if (selMotivo) selMotivo.value = filtros.motivo;
+  const selIniciativa = document.getElementById('filtro-iniciativa'); if (selIniciativa) selIniciativa.value = filtros.iniciativa;
   document.getElementById('btn-filtro-7dias').classList.remove('ativo');
 
   const mesKey = mesKeyDe(currentDate);
@@ -1333,6 +1334,7 @@ function irParaMesAnual(mesKey) {
   const selCidade = document.getElementById('filtro-cidade'); if (selCidade) selCidade.value = '';
   const selClinica = document.getElementById('filtro-clinica'); if (selClinica) selClinica.value = '';
   const selMotivo = document.getElementById('filtro-motivo'); if (selMotivo) selMotivo.value = '';
+  const selIniciativa = document.getElementById('filtro-iniciativa'); if (selIniciativa) selIniciativa.value = '';
   const btn7 = document.getElementById('btn-filtro-7dias'); if (btn7) btn7.classList.remove('ativo');
   abaAtiva = 'agendamentos';
   renderAba();
@@ -1440,7 +1442,7 @@ function atualizarBotaoLimparFiltros() {
   document.getElementById('btn-limpar-filtros').hidden = !algumAtivo;
 }
 
-['filtro-busca','filtro-status','filtro-tipo','filtro-cidade','filtro-clinica','filtro-motivo'].forEach(id => {
+['filtro-busca','filtro-status','filtro-tipo','filtro-cidade','filtro-clinica','filtro-motivo','filtro-iniciativa'].forEach(id => {
   document.getElementById(id).addEventListener('input', () => {
     filtros.busca = normalizarTexto(document.getElementById('filtro-busca').value.trim());
     filtros.status = document.getElementById('filtro-status').value;
@@ -1448,6 +1450,7 @@ function atualizarBotaoLimparFiltros() {
     filtros.cidade = document.getElementById('filtro-cidade').value;
     filtros.clinica = document.getElementById('filtro-clinica').value;
     filtros.motivo = document.getElementById('filtro-motivo').value;
+    filtros.iniciativa = document.getElementById('filtro-iniciativa').value;
     renderTabela(mesKeyDe(currentDate));
     renderChipsStatus(mesKeyDe(currentDate));
     atualizarBotaoLimparFiltros();
@@ -1486,6 +1489,7 @@ document.getElementById('btn-limpar-filtros').addEventListener('click', () => {
   document.getElementById('filtro-cidade').value = '';
   document.getElementById('filtro-clinica').value = '';
   document.getElementById('filtro-motivo').value = '';
+  document.getElementById('filtro-iniciativa').value = '';
   document.getElementById('btn-filtro-7dias').classList.remove('ativo');
   filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', iniciativa: '', periodo: '' };
   renderTabela(mesKeyDe(currentDate));
@@ -1629,7 +1633,7 @@ function renderTabela(mesKey) {
     const jaAgendado = STATUS_AGENDADOS.includes(e.status);
     return `
     <tr data-id="${e.id}" class="${ehHoje ? 'linha-hoje' : ''}">
-      <td><span class="avatar-mini">${escapeHtml(iniciais(e.nome))}</span>${escapeHtml(e.nome||'')}${desmarques >= 2 ? `<span class="badge-alerta">já desmarcou ${desmarques}x</span>` : ''}${e.mesmoContatoOutroAnimal ? `<span class="badge-mesmo-contato">mesmo telefonema</span>` : ''}${e.iniciativa === 'eu' ? `<span class="badge-iniciativa-eu">eu que liguei</span>` : ''}</td>
+      <td><span class="avatar-mini">${escapeHtml(iniciais(e.nome))}</span>${escapeHtml(e.nome||'')}${desmarques >= 2 ? `<span class="badge-alerta">já desmarcou ${desmarques}x</span>` : ''}${e.mesmoContatoOutroAnimal ? `<span class="badge-mesmo-contato">mesmo telefonema</span>` : ''}${e.iniciativa === 'eu' ? `<span class="badge-iniciativa-eu">Eu entrei em contato</span>` : ''}</td>
       <td>${telefoneClicavel(e.telefone)}</td>
       <td>${escapeHtml(e.animal||'')}</td>
       <td>${escapeHtml(e.clinica||'')}</td>
