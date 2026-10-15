@@ -1384,7 +1384,7 @@ function renderMetas(mesKey, stats) {
       if (super_ > 0 && atual >= super_) { statusTxt = 'Supermeta batida!'; statusClasse = 'super'; }
       else if (atual >= meta) { statusTxt = 'Meta batida!'; statusClasse = 'ok'; }
       else if (mesEncerrado) { statusTxt = 'Meta não batida'; statusClasse = 'falhou'; }
-      else { statusTxt = `Meta em andamento... (${Math.round(pctMeta)}%)`; statusClasse = 'andamento'; }
+      else { statusTxt = `Em andamento · ${Math.round(pctMeta)}%`; statusClasse = 'andamento'; }
     }
 
     const formatar = v => campo.moeda ? 'R$ ' + formatarMoeda(v) : v;
