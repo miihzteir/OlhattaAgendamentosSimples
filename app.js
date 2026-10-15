@@ -1096,22 +1096,56 @@ function renderAgendadosHoje() {
       ? (atendimentoHoje ? 'Atendimento hoje' : 'Atendimento em ' + formatarData(e.dataAgendamento)) + (e.horario ? ' às ' + escapeHtml(e.horario) : '')
       : 'Sem data de atendimento definida';
     return `
-    <div class="pendente-item">
+    <div class="pendente-item pendente-clicavel" data-id="${e.id}" title="Ver na tela de Agendamentos">
       <div class="pendente-info">
         <b>${escapeHtml(e.nome || '(sem nome)')}</b> — ${telefoneClicavel(e.telefone)}${e.animal ? ' · ' + escapeHtml(e.animal) : ''}
-        <span>${quando}${e.clinica ? ' · ' + escapeHtml(e.clinica) : ''}</span>
+        <span>${e.tipo ? escapeHtml(e.tipo) + ' · ' : ''}${quando}${e.clinica ? ' · ' + escapeHtml(e.clinica) : ''}</span>
       </div>
       <button type="button" class="btn-editar-pendente" data-id="${e.id}">Editar</button>
     </div>
   `;
   }).join('');
 
+  // clicar no item (fora do botão/telefone) leva pra tela de Agendamentos,
+  // já no mês do atendimento e filtrado por esse contato
+  lista.querySelectorAll('.pendente-clicavel').forEach(item => {
+    item.addEventListener('click', () => {
+      const entry = state.entries.find(e => e.id === item.dataset.id);
+      if (entry) irParaContatoNaTabela(entry);
+    });
+  });
+
   lista.querySelectorAll('.btn-editar-pendente').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
       const entry = state.entries.find(e => e.id === btn.dataset.id);
       if (entry) abrirModalEntry(entry);
     });
   });
+}
+
+// Clicar num contato no painel "Agendei hoje" (Início) leva direto pra tela
+// de Agendamentos, já no mês do atendimento (pode ser diferente do mês de
+// hoje) e com a busca preenchida com o telefone dele, pra aparecer só essa
+// linha na tabela sem precisar procurar
+function irParaContatoNaTabela(entry) {
+  const dataRef = entry.dataAgendamento || entry.dataContato || hojeStr();
+  const [ano, mes] = dataRef.split('-').map(Number);
+  currentDate = new Date(ano, mes - 1, 1);
+  filtros = { busca: normalizarTexto(entry.telefone || ''), status: '', tipo: '', cidade: '', clinica: '', motivo: '', iniciativa: '', periodo: '' };
+
+  const busca = document.getElementById('filtro-busca'); if (busca) busca.value = entry.telefone || '';
+  const selStatus = document.getElementById('filtro-status'); if (selStatus) selStatus.value = '';
+  const selTipo = document.getElementById('filtro-tipo'); if (selTipo) selTipo.value = '';
+  const selCidade = document.getElementById('filtro-cidade'); if (selCidade) selCidade.value = '';
+  const selClinica = document.getElementById('filtro-clinica'); if (selClinica) selClinica.value = '';
+  const selMotivo = document.getElementById('filtro-motivo'); if (selMotivo) selMotivo.value = '';
+  const selIniciativa = document.getElementById('filtro-iniciativa'); if (selIniciativa) selIniciativa.value = '';
+  const btn7 = document.getElementById('btn-filtro-7dias'); if (btn7) btn7.classList.remove('ativo');
+
+  abaAtiva = 'agendamentos';
+  renderAba();
+  atualizarBotaoLimparFiltros();
 }
 
 // Quem TEM atendimento marcado pro DIA escolhido (não importa quando foi
