@@ -326,6 +326,13 @@
   .tabela-wrap{overflow-x:auto;border:1px solid var(--borda);border-radius:var(--raio);background:var(--branco);cursor:grab;}
   .tabela-wrap.arrastando{cursor:grabbing;user-select:none;}
   .tabela-wrap.arrastando *{user-select:none;}
+  /* tabelas de Agendamentos e Notas Fiscais (as "compacta" tipo resumo/semana
+     ficam de fora, são pequenas) ganham altura máxima com rolagem própria —
+     assim a tela não fica cada vez mais comprida conforme mais contatos vão
+     sendo cadastrados; cabeçalho fica fixo no topo da rolagem pra não perder
+     a referência de qual coluna é qual */
+  .tabela-wrap:not(.compacta){max-height:60vh;overflow-y:auto;}
+  .tabela-wrap:not(.compacta) thead th{position:sticky;top:0;z-index:3;}
   table{width:100%;border-collapse:collapse;min-width:980px;}
   th,td{padding:12px 13px;text-align:left;font-size:12.5px;line-height:1.45;border-bottom:1px solid var(--borda);white-space:nowrap;vertical-align:middle;}
   th{background:var(--verde-pinho-escuro);color:var(--creme);font-family:'Quicksand',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:13px 10px;}

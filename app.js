@@ -651,17 +651,15 @@ function renderTudo() {
   }
 }
 
-// Bolinha na aba "Agendamentos": quantos contatos estão com status
-// "Aguardando" no total (mesma contagem do painel "Contatos pendentes" da
-// Início) — aparece não importa em qual mês você esteja olhando, pra nunca
-// esquecer que tem gente esperando contato sem precisar ir atrás.
-// "mesmo telefonema" (2º+ animal da mesma ligação) não conta de novo aqui —
-// senão uma família com 2 bichos aguardando aparecia como 2 pendências em
-// vez de 1, mesma lógica já usada em "Contatos no mês".
+// Bolinha na aba "Agendamentos": quantos contatos estão "Aguardando" no mês
+// que está selecionado ali — de propósito a MESMA contagem (e mesma lista
+// base) do chip "Aguardando" logo abaixo, pra nunca aparecer um número
+// diferente do outro. Por isso não tem dedup de "mesmo telefonema" aqui: o
+// chip também conta cru, cada linha da tabela como uma.
 function atualizarBadgeAtrasados() {
   const badge = document.getElementById('badge-atrasados');
   if (!badge) return;
-  const aguardando = state.entries.filter(e => e.status === 'Aguardando' && !e.mesmoContatoOutroAnimal).length;
+  const aguardando = listaBaseAgendamentos(mesKeyDe(currentDate)).filter(e => e.status === 'Aguardando').length;
   badge.textContent = aguardando;
   badge.hidden = aguardando === 0;
 }
@@ -1019,6 +1017,7 @@ function renderAgendamentos() {
   renderMetas(mesKey, stats);
   renderChipsStatus(mesKey);
   renderTabela(mesKey);
+  atualizarBadgeAtrasados();
 }
 
 // Atalho de filtro por status: um clique já filtra a tabela (em vez de abrir
