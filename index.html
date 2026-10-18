@@ -274,6 +274,11 @@
   .pendente-info span{display:block;color:var(--texto-claro);font-size:12px;margin-top:2px;}
   .pendente-item button{background:none;border:none;color:var(--marrom-escuro);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;padding:4px 0;text-decoration:underline;}
   .pendente-item button:hover{color:var(--marrom-escuro);}
+  /* item clicável leva pra tela de Agendamentos (já no mês e filtrado por
+     aquele contato) — o botão e o link de telefone cancelam a propagação
+     pra não disparar os dois cliques ao mesmo tempo */
+  .pendente-item.pendente-clicavel{cursor:pointer;transition:background .12s;}
+  .pendente-item.pendente-clicavel:hover{background:var(--marrom-claro);}
   .lembrete-hoje{color:var(--marrom-escuro);font-weight:700;}
   .lembrete-atrasado{color:var(--vermelho);font-weight:700;}
   .vazio-pendentes{font-size:13px;color:var(--texto-claro);padding:6px 0;}
@@ -399,6 +404,11 @@
   .campo label{display:block;font-size:12px;font-weight:700;color:var(--texto-claro);margin-bottom:5px;}
   .campo label .btn-copiar{display:inline-block;margin-left:6px;padding:1px 8px;border:1px solid var(--borda);border-radius:20px;background:var(--branco);color:var(--verde-pinho);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;cursor:pointer;vertical-align:1px;}
   .campo label .btn-copiar:hover{background:var(--creme-escuro);}
+  /* campos com botão "copiar" (dados pra colar na emissão da nota fiscal)
+     ganham um destaque visual próprio, pra não se perder no meio dos outros
+     campos do formulário (que são só controle interno, não vão na nota) */
+  .campo:has(.btn-copiar){background:var(--creme-escuro);border:1.5px solid var(--marrom-claro);border-radius:14px;padding:10px 12px 12px;}
+  .campo:has(.btn-copiar) input,.campo:has(.btn-copiar) select,.campo:has(.btn-copiar) textarea{background:var(--branco);}
   .chips-servico{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px;}
   .chip-servico{padding:6px 13px;border-radius:20px;border:1px solid var(--borda);background:var(--branco);color:var(--texto);font-size:12.5px;cursor:pointer;transition:.12s;}
   .chip-servico:hover{border-color:var(--verde-pinho-claro);}
@@ -926,15 +936,13 @@
     <h2 id="nf-titulo">Novo lançamento</h2>
     <form id="form-nf">
       <div class="linha2">
-        <div class="campo"><label>Telefone</label><input type="text" id="nf-f-telefone" placeholder="(00) 00000-0000" autocomplete="off"></div>
         <div class="campo"><label>Animal</label><input type="text" id="nf-f-animal"></div>
-      </div>
-      <div class="historico-contato" id="historico-nf" hidden></div>
-      <div class="linha2">
         <div class="campo"><label>Cliente</label><input type="text" id="nf-f-cliente"></div>
-        <div class="campo"><label>Cidade</label><select id="nf-f-cidade"></select></div>
       </div>
-      <div class="campo"><label>Data do pagamento</label><input type="date" id="nf-f-datapagamento"></div>
+      <div class="linha2">
+        <div class="campo"><label>Cidade</label><select id="nf-f-cidade"></select></div>
+        <div class="campo"><label>Data do pagamento</label><input type="date" id="nf-f-datapagamento"></div>
+      </div>
 
       <div class="campo">
         <label>Serviço(s)</label>
@@ -949,53 +957,56 @@
         <div class="campo"><label>Valor cobrado (R$)</label><input type="text" inputmode="decimal" id="nf-f-cobrado" placeholder="0,00"></div>
         <div class="campo"><label>Splits (R$)</label><input type="text" inputmode="decimal" id="nf-f-splits" placeholder="0,00"></div>
       </div>
-      <div class="linha2">
-        <div class="campo"><label>Valor na nota (R$)</label><input type="text" id="nf-f-valornota" readonly></div>
-        <div class="campo"><label>Forma de pagamento</label>
-          <select id="nf-f-pagamento">
-            <option>PIX</option>
-            <option>Débito</option>
-            <option>Crédito à vista</option>
-            <option>Crédito 2x</option>
-            <option>Crédito 3x</option>
-            <option>Crédito 4x</option>
-            <option>Crédito 5x</option>
-            <option>Crédito 6x</option>
-            <option>Crédito 7x</option>
-            <option>Crédito 8x</option>
-            <option>Crédito 9x</option>
-            <option>Crédito 10x</option>
-          </select>
-        </div>
+      <div class="campo"><label>Forma de pagamento</label>
+        <select id="nf-f-pagamento">
+          <option>PIX</option>
+          <option>Débito</option>
+          <option>Crédito à vista</option>
+          <option>Crédito 2x</option>
+          <option>Crédito 3x</option>
+          <option>Crédito 4x</option>
+          <option>Crédito 5x</option>
+          <option>Crédito 6x</option>
+          <option>Crédito 7x</option>
+          <option>Crédito 8x</option>
+          <option>Crédito 9x</option>
+          <option>Crédito 10x</option>
+        </select>
       </div>
+      <div class="campo campo-estreito"><label>Estado (UF)</label><input type="text" id="nf-f-estado" maxlength="2" placeholder="MT" style="text-transform:uppercase;"></div>
 
       <label class="check-inline">
         <input type="checkbox" id="nf-f-quer-nf" checked>
         Enviar a nota fiscal para o cliente (os dados abaixo são preenchidos sempre, quer ele receba ou não)
       </label>
 
+      <!-- Na mesma ordem em que ela digita isso na nota fiscal de verdade, pra
+           ir copiando campo por campo sem precisar pular pra lá e pra cá -->
       <div id="nf-dados-nf-bloco">
         <div class="linha2">
-          <div class="campo"><label>Nome completo (NF) <button type="button" class="btn-copiar" data-campo="nf-f-nome">copiar</button></label><input type="text" id="nf-f-nome"></div>
           <div class="campo"><label>CPF <button type="button" class="btn-copiar" data-campo="nf-f-cpf">copiar</button></label><input type="text" id="nf-f-cpf" placeholder="000.000.000-00"></div>
-        </div>
-        <div class="linha2">
-          <div class="campo"><label>CEP <button type="button" class="btn-copiar" data-campo="nf-f-cep">copiar</button></label><input type="text" id="nf-f-cep" placeholder="00000-000"></div>
-          <div class="campo"><label>Número <button type="button" class="btn-copiar" data-campo="nf-f-numero">copiar</button></label><input type="text" id="nf-f-numero"></div>
+          <div class="campo"><label>Nome completo (NF) <button type="button" class="btn-copiar" data-campo="nf-f-nome">copiar</button></label><input type="text" id="nf-f-nome"></div>
         </div>
         <div class="linha2">
           <div class="campo"><label>Rua <button type="button" class="btn-copiar" data-campo="nf-f-rua">copiar</button></label><input type="text" id="nf-f-rua"></div>
-          <div class="campo"><label>Complemento <button type="button" class="btn-copiar" data-campo="nf-f-complemento">copiar</button></label><input type="text" id="nf-f-complemento" placeholder="apto, sala, bloco..."></div>
+          <div class="campo"><label>Número <button type="button" class="btn-copiar" data-campo="nf-f-numero">copiar</button></label><input type="text" id="nf-f-numero"></div>
         </div>
         <div class="linha2">
+          <div class="campo"><label>Complemento <button type="button" class="btn-copiar" data-campo="nf-f-complemento">copiar</button></label><input type="text" id="nf-f-complemento" placeholder="apto, sala, bloco..."></div>
           <div class="campo"><label>Bairro <button type="button" class="btn-copiar" data-campo="nf-f-bairro">copiar</button></label><input type="text" id="nf-f-bairro"></div>
-          <div class="campo"><label>Cidade <button type="button" class="btn-copiar" data-campo="nf-f-cidade-end">copiar</button></label><input type="text" id="nf-f-cidade-end"></div>
         </div>
-        <div class="campo campo-estreito"><label>Estado (UF) <button type="button" class="btn-copiar" data-campo="nf-f-estado">copiar</button></label><input type="text" id="nf-f-estado" maxlength="2" placeholder="MT" style="text-transform:uppercase;"></div>
-        <div class="campo"><label>E-mail <button type="button" class="btn-copiar" data-campo="nf-f-email">copiar</button></label><input type="email" id="nf-f-email"></div>
+        <div class="linha2">
+          <div class="campo"><label>Telefone <button type="button" class="btn-copiar" data-campo="nf-f-telefone">copiar</button></label><input type="text" id="nf-f-telefone" placeholder="(00) 00000-0000" autocomplete="off"></div>
+          <div class="campo"><label>CEP <button type="button" class="btn-copiar" data-campo="nf-f-cep">copiar</button></label><input type="text" id="nf-f-cep" placeholder="00000-000"></div>
+        </div>
+        <div class="historico-contato" id="historico-nf" hidden></div>
+        <div class="linha2">
+          <div class="campo"><label>Cidade <button type="button" class="btn-copiar" data-campo="nf-f-cidade-end">copiar</button></label><input type="text" id="nf-f-cidade-end"></div>
+          <div class="campo"><label>E-mail <button type="button" class="btn-copiar" data-campo="nf-f-email">copiar</button></label><input type="email" id="nf-f-email"></div>
+        </div>
+        <div class="campo"><label>Observação <button type="button" class="btn-copiar" data-campo="nf-f-obs">copiar</button></label><textarea id="nf-f-obs"></textarea></div>
+        <div class="campo"><label>Valor na nota (R$) <button type="button" class="btn-copiar" data-campo="nf-f-valornota">copiar</button></label><input type="text" id="nf-f-valornota" readonly></div>
       </div>
-
-      <div class="campo"><label>Observação <button type="button" class="btn-copiar" data-campo="nf-f-obs">copiar</button></label><textarea id="nf-f-obs"></textarea></div>
 
       <label class="check-inline" id="nf-campo-feito" hidden>
         <input type="checkbox" id="nf-f-feito">
