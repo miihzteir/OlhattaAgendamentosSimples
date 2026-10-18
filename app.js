@@ -378,10 +378,10 @@ function abrirModalLink(contexto, idx) {
   document.getElementById('link-f-nome').value = l ? l.nome||'' : '';
   document.getElementById('link-f-url').value = l ? l.url||'' : '';
   document.getElementById('btn-excluir-link').hidden = !l;
-  document.getElementById('modal-link').hidden = false;
+  abrirOverlay('modal-link');
   document.getElementById('modal-link').scrollTop = 0;
 }
-function fecharModalLink() { document.getElementById('modal-link').hidden = true; }
+function fecharModalLink() { fecharOverlay('modal-link'); }
 document.getElementById('btn-add-link').addEventListener('click', () => abrirModalLink('agendamentos', null));
 document.getElementById('btn-add-link-nf').addEventListener('click', () => abrirModalLink('nf', null));
 document.getElementById('fechar-modal-link').addEventListener('click', fecharModalLink);
@@ -442,28 +442,30 @@ function renderResultadosPesquisa(query) {
   cont.querySelectorAll('.resultado-pesquisa').forEach(btn => {
     btn.addEventListener('click', () => {
       const r = resultados[Number(btn.dataset.idx)];
-      fecharModalPesquisa();
+      // fecha só visualmente aqui (sem mexer no histórico) — já que na
+      // sequência abrimos aba+modal novos, que empilham suas próprias
+      // entradas; chamar history.back() bem antes disso entraria em
+      // conflito com os pushState logo em seguida
+      document.getElementById('modal-pesquisa').hidden = true;
       if (r.tipo === 'agendamento') {
-        abaAtiva = 'agendamentos';
-        renderAba();
+        navegarParaAba('agendamentos');
         abrirModalEntry(r.entry);
       } else {
-        abaAtiva = 'notas';
-        renderAba();
+        navegarParaAba('notas');
         abrirModalNf(r.entry);
       }
     });
   });
 }
 function abrirModalPesquisa() {
-  document.getElementById('modal-pesquisa').hidden = false;
+  abrirOverlay('modal-pesquisa');
   document.getElementById('modal-pesquisa').scrollTop = 0;
   const input = document.getElementById('pesquisa-universal-input');
   input.value = '';
   renderResultadosPesquisa('');
   setTimeout(() => input.focus(), 50);
 }
-function fecharModalPesquisa() { document.getElementById('modal-pesquisa').hidden = true; }
+function fecharModalPesquisa() { fecharOverlay('modal-pesquisa'); }
 document.getElementById('btn-pesquisa-universal').addEventListener('click', abrirModalPesquisa);
 document.getElementById('fechar-modal-pesquisa').addEventListener('click', fecharModalPesquisa);
 document.getElementById('pesquisa-universal-input').addEventListener('input', ev => renderResultadosPesquisa(ev.target.value));
@@ -677,8 +679,78 @@ function renderAba() {
   else renderAnual();
 }
 
+// ============================================================
+// NAVEGAÇÃO (botão "voltar" físico do celular / app instalado)
+// ============================================================
+// O app é uma SPA de página única — trocar de aba e abrir modal só mudam o
+// que tá visível, nunca muda de página de verdade. Sem isso, o botão
+// "voltar" do Android fecharia o app inteiro na primeira tentativa, mesmo
+// com um modal aberto ou depois de ter trocado de aba. Cada troca de aba e
+// cada modal aberto empilha uma entrada no histórico do navegador; o
+// "voltar" desfaz uma de cada vez, na ordem em que ela foi navegando, só
+// saindo do app de verdade quando não sobra mais nada pra desfazer.
+const IDS_MODAIS = ['modal-entry', 'modal-texto', 'modal-categorias', 'modal-nf', 'modal-servicos', 'modal-link', 'modal-pesquisa'];
+
+function modalAberto() {
+  return IDS_MODAIS.find(id => { const el = document.getElementById(id); return el && !el.hidden; }) || null;
+}
+
+function pushEstadoNavegacao(estado) {
+  history.pushState(Object.assign({ olhattaNav: true }, estado), '', location.href);
+}
+
+function navegarParaAba(novaAba) {
+  if (novaAba === abaAtiva) return;
+  abaAtiva = novaAba;
+  pushEstadoNavegacao({ tipo: 'aba', aba: novaAba });
+  renderAba();
+}
+
+// Toda abertura/fechamento de modal passa por essas duas funções (em vez de
+// mexer direto no .hidden) pra ficar empilhado certinho no histórico
+function abrirOverlay(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.hidden = false;
+  pushEstadoNavegacao({ tipo: 'modal', modal: id });
+}
+
+function fecharOverlay(id) {
+  const el = document.getElementById(id);
+  if (!el || el.hidden) return;
+  el.hidden = true;
+  // se a entrada atual do histórico é a desse modal, volta uma posição pra
+  // não deixar "entrada fantasma" (botão voltar não devia reabrir ele do
+  // nada depois de já ter sido fechado pelo X/Cancelar)
+  const estado = history.state;
+  if (estado && estado.olhattaNav && estado.tipo === 'modal' && estado.modal === id) {
+    history.back();
+  }
+}
+
+window.addEventListener('popstate', ev => {
+  // se tinha algum modal aberto na tela, o "voltar" fecha ele primeiro —
+  // sem mexer na aba, já que abrir modal não troca de aba
+  const aberto = modalAberto();
+  if (aberto) { document.getElementById(aberto).hidden = true; return; }
+
+  const estado = ev.state;
+  if (estado && estado.olhattaNav && estado.tipo === 'aba' && estado.aba) {
+    abaAtiva = estado.aba;
+    renderAba();
+  } else if (!estado || !estado.olhattaNav) {
+    // chegou na entrada de antes de qualquer navegação nossa (o "fundo" da
+    // pilha) — volta pra Início, que é a aba padrão do app
+    abaAtiva = 'inicio';
+    renderAba();
+  }
+  // outros estados (ex: entrada de um modal que já tinha sido fechado por
+  // outro caminho) não mexem na aba — o importante (fechar modal) já foi
+  // garantido acima
+});
+
 document.querySelectorAll('nav.abas button').forEach(btn => {
-  btn.addEventListener('click', () => { abaAtiva = btn.dataset.aba; renderAba(); });
+  btn.addEventListener('click', () => navegarParaAba(btn.dataset.aba));
 });
 
 // Contexto "Hoje é ..." no topo da barra lateral
@@ -1143,8 +1215,7 @@ function irParaContatoNaTabela(entry) {
   const selIniciativa = document.getElementById('filtro-iniciativa'); if (selIniciativa) selIniciativa.value = '';
   const btn7 = document.getElementById('btn-filtro-7dias'); if (btn7) btn7.classList.remove('ativo');
 
-  abaAtiva = 'agendamentos';
-  renderAba();
+  navegarParaAba('agendamentos');
   atualizarBotaoLimparFiltros();
 }
 
@@ -1369,8 +1440,7 @@ function irParaMesAnual(mesKey) {
   const selMotivo = document.getElementById('filtro-motivo'); if (selMotivo) selMotivo.value = '';
   const selIniciativa = document.getElementById('filtro-iniciativa'); if (selIniciativa) selIniciativa.value = '';
   const btn7 = document.getElementById('btn-filtro-7dias'); if (btn7) btn7.classList.remove('ativo');
-  abaAtiva = 'agendamentos';
-  renderAba();
+  navegarParaAba('agendamentos');
   atualizarBotaoLimparFiltros();
 }
 
@@ -1763,14 +1833,14 @@ function celObsClicavel(principal, extra, titulo) {
 function abrirModalTexto(titulo, texto) {
   document.getElementById('modal-texto-titulo').textContent = titulo || '';
   document.getElementById('modal-texto-corpo').textContent = texto || '';
-  document.getElementById('modal-texto').hidden = false;
+  abrirOverlay('modal-texto');
   document.getElementById('modal-texto').scrollTop = 0;
 }
 document.getElementById('fechar-modal-texto').addEventListener('click', () => {
-  document.getElementById('modal-texto').hidden = true;
+  fecharOverlay('modal-texto');
 });
 document.getElementById('modal-texto').addEventListener('click', ev => {
-  if (ev.target.id === 'modal-texto') document.getElementById('modal-texto').hidden = true;
+  if (ev.target.id === 'modal-texto') fecharOverlay('modal-texto');
 });
 
 function escapeHtml(str) {
@@ -1928,11 +1998,11 @@ function abrirModalEntry(entry) {
   document.getElementById('f-obs').value = entry ? entry.obs||'' : '';
   atualizarVisibilidadeMotivo(); // também atualiza o painel de histórico
 
-  document.getElementById('modal-entry').hidden = false;
+  abrirOverlay('modal-entry');
   document.getElementById('modal-entry').scrollTop = 0;
 }
 function fecharModalEntry() {
-  document.getElementById('modal-entry').hidden = true;
+  fecharOverlay('modal-entry');
   document.getElementById('historico-contato').hidden = true;
 }
 
@@ -2017,11 +2087,11 @@ const CAT_LABELS = { clinicas: 'Clínicas', cidades: 'Cidades', tipos: 'Tipos', 
 
 document.getElementById('btn-categorias').addEventListener('click', () => {
   renderCategoriasPainel();
-  document.getElementById('modal-categorias').hidden = false;
+  abrirOverlay('modal-categorias');
   document.getElementById('modal-categorias').scrollTop = 0;
 });
 document.getElementById('fechar-modal-categorias').addEventListener('click', () => {
-  document.getElementById('modal-categorias').hidden = true;
+  fecharOverlay('modal-categorias');
 });
 
 let limparCampoCategoriaAoRenderizar = new Set();
@@ -2081,6 +2151,7 @@ function renderCategoriasPainel() {
 // ============================================================
 document.getElementById('ano-anterior').addEventListener('click', () => { anoAnual--; renderAnual(); });
 document.getElementById('ano-proximo').addEventListener('click', () => { anoAnual++; renderAnual(); });
+document.getElementById('ano-atual').addEventListener('click', () => { anoAnual = new Date().getFullYear(); renderAnual(); });
 
 function statsDoAno(ano) {
   const meses = [];
@@ -2286,7 +2357,6 @@ function renderNotas() {
 function renderNfCards(mesKey) {
   const cont = document.getElementById('nf-cards-resumo');
   const lista = entriesNfDoMes(mesKey);
-  const totalCobrado = lista.reduce((s,e) => s + (Number(e.cobrado)||0), 0);
   const totalNaNota = lista.reduce((s,e) => s + (Number(e.valorNota)||0), 0);
   const pendentes = lista.filter(e => !e.feito).length;
   const feitos = lista.filter(e => e.feito).length;
@@ -2294,12 +2364,11 @@ function renderNfCards(mesKey) {
     <div class="card">
       <h3>Lançamentos no mês</h3>
       <div class="num">${lista.length}</div>
-      <div class="sub">R$ ${formatarMoeda(totalCobrado)} cobrado(s)</div>
     </div>
     <div class="card">
-      <h3>Valor na nota</h3>
+      <h3>Total cobrado menos splits</h3>
       <div class="num">R$ ${formatarMoeda(totalNaNota)}</div>
-      <div class="sub">cobrado menos splits</div>
+      <div class="sub">valor que vai na nota fiscal</div>
     </div>
     <div class="card">
       <h3>Notas pendentes</h3>
@@ -2508,11 +2577,11 @@ function abrirModalNf(entry) {
   nfAtualizarVisibilidadeDadosNf();
   atualizarPainelHistoricoNf();
 
-  document.getElementById('modal-nf').hidden = false;
+  abrirOverlay('modal-nf');
   document.getElementById('modal-nf').scrollTop = 0;
 }
 function fecharModalNf() {
-  document.getElementById('modal-nf').hidden = true;
+  fecharOverlay('modal-nf');
   document.getElementById('historico-nf').hidden = true;
 }
 
@@ -2645,20 +2714,39 @@ function autopreencherNf() {
   const telefone = document.getElementById('nf-f-telefone').value;
   const cpf = document.getElementById('nf-f-cpf').value;
   const achado = buscarNfPorContato(telefone, cpf);
-  if (!achado) return;
-  if (!document.getElementById('nf-f-cliente').value.trim()) document.getElementById('nf-f-cliente').value = achado.cliente || '';
-  if (!document.getElementById('nf-f-cidade').value) document.getElementById('nf-f-cidade').value = achado.cidade || '';
-  if (!document.getElementById('nf-f-nome').value.trim()) { document.getElementById('nf-f-nome').value = achado.nomeNf || ''; nfNomeSincronizado = false; }
-  if (!document.getElementById('nf-f-cpf').value.trim()) document.getElementById('nf-f-cpf').value = achado.cpf || '';
-  if (!document.getElementById('nf-f-cep').value.trim()) document.getElementById('nf-f-cep').value = achado.cep || '';
-  if (!document.getElementById('nf-f-numero').value.trim()) document.getElementById('nf-f-numero').value = achado.numero || '';
-  if (!document.getElementById('nf-f-rua').value.trim()) document.getElementById('nf-f-rua').value = achado.rua || '';
-  if (!document.getElementById('nf-f-complemento').value.trim()) document.getElementById('nf-f-complemento').value = achado.complemento || '';
-  if (!document.getElementById('nf-f-bairro').value.trim()) document.getElementById('nf-f-bairro').value = achado.bairro || '';
-  if (!document.getElementById('nf-f-cidade-end').value.trim()) document.getElementById('nf-f-cidade-end').value = achado.cidadeEndereco || '';
-  if (!document.getElementById('nf-f-estado').value.trim()) document.getElementById('nf-f-estado').value = achado.estado || '';
-  if (!document.getElementById('nf-f-email').value.trim()) document.getElementById('nf-f-email').value = achado.email || '';
-  mostrarToast('Dados preenchidos a partir de um lançamento anterior');
+
+  // A maioria dos clientes já existe em Agendamentos antes de nunca ter
+  // lançado uma nota fiscal (ela marca a consulta primeiro, a nota vem
+  // depois) — então só olhar lançamentos de NF anteriores (achado acima)
+  // deixa a 1ª nota de cada cliente sem preencher nada. Complementa com o
+  // cadastro de Agendamentos pra pelo menos nome/animal/cidade virem
+  // prontos (endereço/CPF/e-mail só existem mesmo em notas já lançadas).
+  const historicoAgendamento = buscarHistorico(telefone, '');
+  const ultimoAgendamento = historicoAgendamento.length ? ordenarPorDataRecente(historicoAgendamento)[0] : null;
+
+  if (!achado && !ultimoAgendamento) return;
+
+  if (!document.getElementById('nf-f-cliente').value.trim()) {
+    document.getElementById('nf-f-cliente').value = (achado && achado.cliente) || (ultimoAgendamento && ultimoAgendamento.nome) || '';
+  }
+  if (!document.getElementById('nf-f-cidade').value) {
+    document.getElementById('nf-f-cidade').value = (achado && achado.cidade) || (ultimoAgendamento && ultimoAgendamento.cidade) || '';
+  }
+  if (!document.getElementById('nf-f-animal').value.trim()) {
+    document.getElementById('nf-f-animal').value = (achado && achado.animal) || (ultimoAgendamento && ultimoAgendamento.animal) || '';
+  }
+  if (!document.getElementById('nf-f-nome').value.trim() && achado) { document.getElementById('nf-f-nome').value = achado.nomeNf || ''; nfNomeSincronizado = false; }
+  if (!document.getElementById('nf-f-cpf').value.trim() && achado) document.getElementById('nf-f-cpf').value = achado.cpf || '';
+  if (!document.getElementById('nf-f-cep').value.trim() && achado) document.getElementById('nf-f-cep').value = achado.cep || '';
+  if (!document.getElementById('nf-f-numero').value.trim() && achado) document.getElementById('nf-f-numero').value = achado.numero || '';
+  if (!document.getElementById('nf-f-rua').value.trim() && achado) document.getElementById('nf-f-rua').value = achado.rua || '';
+  if (!document.getElementById('nf-f-complemento').value.trim() && achado) document.getElementById('nf-f-complemento').value = achado.complemento || '';
+  if (!document.getElementById('nf-f-bairro').value.trim() && achado) document.getElementById('nf-f-bairro').value = achado.bairro || '';
+  if (!document.getElementById('nf-f-cidade-end').value.trim() && achado) document.getElementById('nf-f-cidade-end').value = achado.cidadeEndereco || '';
+  if (!document.getElementById('nf-f-estado').value.trim() && achado) document.getElementById('nf-f-estado').value = achado.estado || '';
+  if (!document.getElementById('nf-f-email').value.trim() && achado) document.getElementById('nf-f-email').value = achado.email || '';
+
+  mostrarToast(achado ? 'Dados preenchidos a partir de um lançamento anterior' : 'Nome, animal e cidade preenchidos a partir de Agendamentos — falta só o endereço');
 }
 document.getElementById('nf-f-telefone').addEventListener('blur', autopreencherNf);
 document.getElementById('nf-f-cpf').addEventListener('blur', autopreencherNf);
@@ -2739,11 +2827,11 @@ document.getElementById('btn-excluir-nf').addEventListener('click', () => {
 // ---------- Modal: gerenciar serviços salvos ----------
 document.getElementById('nf-btn-servicos').addEventListener('click', () => {
   renderServicosLista();
-  document.getElementById('modal-servicos').hidden = false;
+  abrirOverlay('modal-servicos');
   document.getElementById('modal-servicos').scrollTop = 0;
 });
 document.getElementById('fechar-modal-servicos').addEventListener('click', () => {
-  document.getElementById('modal-servicos').hidden = true;
+  fecharOverlay('modal-servicos');
 });
 
 function renderServicosLista() {

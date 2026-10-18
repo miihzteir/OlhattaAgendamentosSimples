@@ -42,7 +42,11 @@
      funcionando normal, só a "régua" visual some */
   *{scrollbar-width:none;-ms-overflow-style:none;}
   *::-webkit-scrollbar{width:0;height:0;display:none;}
-  body{margin:0;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--creme);color:var(--texto);}
+  body{margin:0;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--creme);color:var(--texto);overflow-x:hidden;}
+  /* rede de segurança: nome/e-mail/link comprido sem espaço nunca estoura a
+     margem do card/coluna onde está, em nenhuma tela — quebra só quando
+     realmente precisa, então não muda a aparência do texto normal */
+  *{overflow-wrap:anywhere;}
   h1,h2,h3,.fonte-titulo{font-family:'Quicksand','Nunito',sans-serif;}
   img{max-width:100%;}
   [hidden]{display:none!important;}
@@ -267,7 +271,10 @@
   .resultado-pesquisa .rp-det{font-size:11.5px;color:var(--texto-claro);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .pesquisa-vazia{text-align:center;color:var(--texto-claro);font-size:13px;padding:24px 10px;}
 
-  #lista-pendentes, #lista-agendados-hoje, #lista-consultas-hoje{display:flex;flex-direction:column;gap:8px;}
+  /* com muitos contatos no dia, a lista rola dentro do próprio card em vez
+     de ir esticando a tela inteira pra baixo (rolagem invisível, já que
+     todo *::-webkit-scrollbar some no app inteiro) */
+  #lista-pendentes, #lista-agendados-hoje, #lista-consultas-hoje{display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto;}
   .btn-confirmar-hoje{flex-shrink:0;}
   .pendente-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border-radius:10px;background:var(--creme-escuro);font-size:13px;flex-wrap:wrap;}
   .pendente-info b{color:var(--marrom-escuro);}
@@ -519,6 +526,7 @@
     .painel-secao{padding:14px 16px;}
     .painel-inicio{padding:13px 15px;}
     .inicio-grid{gap:10px;}
+    #lista-pendentes, #lista-agendados-hoje, #lista-consultas-hoje{max-height:280px;}
     .inicio-topo{flex-direction:column;align-items:stretch;}
     .inicio-topo > .btn{width:100%;text-align:center;}
     .inicio-data-sel{width:100%;}
@@ -732,6 +740,7 @@
         <button id="ano-anterior">&#8249;</button>
         <div class="rotulo" id="ano-rotulo">2026</div>
         <button id="ano-proximo">&#8250;</button>
+        <button class="hoje" id="ano-atual">Ano atual</button>
       </div>
 
       <div class="anual-destaques" id="anual-destaques"></div>
