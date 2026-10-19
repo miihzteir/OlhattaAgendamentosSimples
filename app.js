@@ -2416,24 +2416,47 @@ document.getElementById('relatorio-motivos').addEventListener('click', ev => {
   renderMotivosRelatorio(relatorioStatsAtual);
 });
 
-// ---- Observação do relatório: texto livre por período, com controles de
-// aumentar/diminuir/normalizar o tamanho da letra e negrito/sublinhado ----
-const OBS_PADRAO = { texto: '', tamanho: 14, negrito: false, sublinhado: false };
+// ---- Observação do relatório: texto rico por período (negrito/sublinhado/
+// tamanho só no trecho selecionado, igual um editor de texto normal), com
+// "Limpar tudo" e "Desfazer" (até 5 alterações) — e o que ela escreve aqui
+// também entra no PDF exportado ----
+const OBS_PADRAO = { texto: '' };
 const OBS_FONTE_MIN = 12, OBS_FONTE_MAX = 22, OBS_FONTE_PASSO = 2, OBS_FONTE_NORMAL = 14;
+const OBS_HISTORICO_MAX = 5;
+
+let obsHistorico = []; // pilha de innerHTML anteriores (até 5) pro "Desfazer"
+let obsHistoricoPeriodoKey = null;
+let obsEditandoDesdeSnapshot = false; // true depois do 1º caractere digitado desde o último snapshot, pra não empilhar um snapshot por tecla
 
 function obsDoPeriodo(chave) {
   return Object.assign({}, OBS_PADRAO, state.relatorioObs[chave] || {});
 }
 
-function aplicarEstiloObs(cfg) {
+// Observações salvas antes dessa mudança eram texto puro com negrito/sublinhado/
+// tamanho valendo pro campo inteiro (campos tamanho/negrito/sublinhado); migra
+// isso pra um span já formatado na primeira vez que abre, preservando o que
+// ela já tinha escrito. Se o texto salvo já tem tag (formato novo), usa direto.
+function obsTextoParaHtml(cfg) {
+  if (!cfg.texto) return '';
+  if (cfg.texto.indexOf('<') !== -1) return cfg.texto;
+  const estilos = [];
+  if (cfg.negrito) estilos.push('font-weight:700');
+  if (cfg.sublinhado) estilos.push('text-decoration:underline');
+  if (cfg.tamanho && cfg.tamanho !== OBS_FONTE_NORMAL) estilos.push('font-size:' + cfg.tamanho + 'px');
+  const corpo = escapeHtml(cfg.texto).replace(/\n/g, '<br>');
+  return estilos.length ? `<span style="${estilos.join(';')}">${corpo}</span>` : corpo;
+}
+
+function atualizarBotaoDesfazer() {
+  const btn = document.getElementById('obs-desfazer');
+  if (btn) btn.disabled = obsHistorico.length === 0;
+}
+
+function obsSnapshotAntes() {
   const campo = document.getElementById('relatorio-obs');
-  campo.style.fontSize = cfg.tamanho + 'px';
-  campo.style.fontWeight = cfg.negrito ? '700' : '400';
-  campo.style.textDecoration = cfg.sublinhado ? 'underline' : 'none';
-  document.getElementById('obs-negrito').classList.toggle('ativo', cfg.negrito);
-  document.getElementById('obs-sublinhado').classList.toggle('ativo', cfg.sublinhado);
-  document.getElementById('obs-fonte-menos').disabled = cfg.tamanho <= OBS_FONTE_MIN;
-  document.getElementById('obs-fonte-mais').disabled = cfg.tamanho >= OBS_FONTE_MAX;
+  obsHistorico.push(campo.innerHTML);
+  if (obsHistorico.length > OBS_HISTORICO_MAX) obsHistorico.shift();
+  atualizarBotaoDesfazer();
 }
 
 // Salva sozinho (mesmo padrão de autosave já usado em Metas), sempre na chave
@@ -2447,28 +2470,147 @@ function salvarEstadoObs(chave, cfg) {
     .catch(err => { document.getElementById('relatorio-obs-status').textContent = ''; mostrarToast('Não foi possível salvar a observação: ' + err.message); });
 }
 
-document.getElementById('relatorio-obs').addEventListener('blur', ev => {
-  const chave = ev.target.dataset.chave;
-  if (!chave) return;
-  const atual = obsDoPeriodo(chave);
-  if (ev.target.value === atual.texto) return; // nada mudou, não grava à toa
-  salvarEstadoObs(chave, Object.assign({}, atual, { texto: ev.target.value }));
-});
-
-function botaoObsClicado(mudar) {
+function obsSalvarAgora() {
   const campo = document.getElementById('relatorio-obs');
   const chave = campo.dataset.chave;
   if (!chave) return;
-  const cfg = Object.assign({}, obsDoPeriodo(chave), { texto: campo.value }, mudar(obsDoPeriodo(chave)));
-  aplicarEstiloObs(cfg);
-  salvarEstadoObs(chave, cfg);
+  if (!campo.textContent.trim()) campo.innerHTML = ''; // limpa sobra tipo <br> solto, senão o campo nunca fica "vazio" de verdade
+  const atual = obsDoPeriodo(chave);
+  if (campo.innerHTML === (atual.texto || '')) return; // nada mudou de fato, não grava à toa
+  salvarEstadoObs(chave, { texto: campo.innerHTML });
 }
 
-document.getElementById('obs-fonte-menos').addEventListener('click', () => botaoObsClicado(cfg => ({ tamanho: Math.max(OBS_FONTE_MIN, cfg.tamanho - OBS_FONTE_PASSO) })));
-document.getElementById('obs-fonte-mais').addEventListener('click', () => botaoObsClicado(cfg => ({ tamanho: Math.min(OBS_FONTE_MAX, cfg.tamanho + OBS_FONTE_PASSO) })));
-document.getElementById('obs-fonte-normal').addEventListener('click', () => botaoObsClicado(() => ({ tamanho: OBS_FONTE_NORMAL })));
-document.getElementById('obs-negrito').addEventListener('click', () => botaoObsClicado(cfg => ({ negrito: !cfg.negrito })));
-document.getElementById('obs-sublinhado').addEventListener('click', () => botaoObsClicado(cfg => ({ sublinhado: !cfg.sublinhado })));
+const campoObsEl = document.getElementById('relatorio-obs');
+
+// Sem isso, o navegador tira o cursor/seleção do campo de observação assim
+// que o dedo/mouse encosta no botão da barra de ferramentas (mousedown vem
+// antes do click) — aí "negrito"/"sublinhado"/tamanho perdem o trecho
+// selecionado e não aplicam em nada
+document.querySelector('.obs-toolbar').addEventListener('mousedown', ev => {
+  if (ev.target.closest('.obs-tbtn')) ev.preventDefault();
+});
+
+campoObsEl.addEventListener('blur', () => {
+  obsSalvarAgora();
+  obsEditandoDesdeSnapshot = false;
+});
+
+campoObsEl.addEventListener('input', () => {
+  if (!obsEditandoDesdeSnapshot) {
+    obsSnapshotAntes();
+    obsEditandoDesdeSnapshot = true;
+  }
+});
+
+// Enter insere uma quebra de linha simples (<br>) em vez de um parágrafo novo
+// (<div>/<p>) — com parágrafos separados, negrito/sublinhado/tamanho num
+// texto de várias linhas faziam o Chrome perder a seleção inteira depois de
+// aplicar o estilo na 1ª linha, deixando a 2ª linha pra trás sem querer
+campoObsEl.addEventListener('keydown', ev => {
+  if (ev.key === 'Enter') {
+    ev.preventDefault();
+    document.execCommand('insertLineBreak');
+  }
+});
+
+// Negrito/sublinhado mostram "ativo" conforme a seleção/cursor atual (não o
+// campo inteiro) — só quando o foco tá no próprio campo de observação
+function atualizarEstadoBotoesFormatoObs() {
+  if (document.activeElement !== campoObsEl) return;
+  document.getElementById('obs-negrito').classList.toggle('ativo', document.queryCommandState('bold'));
+  document.getElementById('obs-sublinhado').classList.toggle('ativo', document.queryCommandState('underline'));
+}
+document.addEventListener('selectionchange', atualizarEstadoBotoesFormatoObs);
+
+function tamanhoAtualDaSelecaoObs() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return OBS_FONTE_NORMAL;
+  let node = sel.getRangeAt(0).startContainer;
+  if (node.nodeType === 3) node = node.parentElement;
+  if (!node || !campoObsEl.contains(node)) return OBS_FONTE_NORMAL;
+  const px = parseFloat(getComputedStyle(node).fontSize);
+  return isNaN(px) ? OBS_FONTE_NORMAL : Math.round(px);
+}
+
+// Só muda o tamanho do trecho selecionado: usa o truque de aplicar fontSize
+// legado (1-7) e trocar a tag <font> resultante por um <span> com px de
+// verdade. Depois recria a seleção em cima dos spans novos (clicar A+/A- de
+// novo sem reselecionar nada continua valendo pro mesmo trecho) e tira
+// qualquer tamanho antigo que tenha ficado por dentro (de um clique anterior),
+// senão o de dentro "ganha" visualmente do tamanho novo de fora
+function aplicarTamanhoNaSelecaoObs(px) {
+  document.execCommand('fontSize', false, '7');
+  const novosSpans = [];
+  campoObsEl.querySelectorAll('font[size="7"]').forEach(f => {
+    f.querySelectorAll('span[style]').forEach(inner => {
+      if (inner.style.fontSize) {
+        inner.style.fontSize = '';
+        if (!inner.getAttribute('style')) inner.replaceWith(...inner.childNodes);
+      }
+    });
+    const span = document.createElement('span');
+    span.style.fontSize = px + 'px';
+    while (f.firstChild) span.appendChild(f.firstChild);
+    f.replaceWith(span);
+    novosSpans.push(span);
+  });
+  if (novosSpans.length) {
+    const sel = window.getSelection();
+    const range = document.createRange();
+    const ultimo = novosSpans[novosSpans.length - 1];
+    // por DENTRO dos spans (não antes/depois deles), senão a próxima leitura
+    // de "tamanho atual da seleção" pega o tamanho do contêiner pai (o campo
+    // inteiro) em vez do span recém-criado, e um 2º clique em A+/A- não
+    // enxerga o tamanho que acabou de aplicar
+    range.setStart(novosSpans[0], 0);
+    range.setEnd(ultimo, ultimo.childNodes.length);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}
+
+function formatarObs(acao) {
+  campoObsEl.focus();
+  obsSnapshotAntes();
+  obsEditandoDesdeSnapshot = true;
+  acao();
+  atualizarEstadoBotoesFormatoObs();
+  obsSalvarAgora();
+}
+
+document.getElementById('obs-fonte-menos').addEventListener('click', () => formatarObs(() => aplicarTamanhoNaSelecaoObs(Math.max(OBS_FONTE_MIN, tamanhoAtualDaSelecaoObs() - OBS_FONTE_PASSO))));
+document.getElementById('obs-fonte-mais').addEventListener('click', () => formatarObs(() => aplicarTamanhoNaSelecaoObs(Math.min(OBS_FONTE_MAX, tamanhoAtualDaSelecaoObs() + OBS_FONTE_PASSO))));
+document.getElementById('obs-fonte-normal').addEventListener('click', () => formatarObs(() => aplicarTamanhoNaSelecaoObs(OBS_FONTE_NORMAL)));
+document.getElementById('obs-negrito').addEventListener('click', () => formatarObs(() => document.execCommand('bold')));
+document.getElementById('obs-sublinhado').addEventListener('click', () => formatarObs(() => document.execCommand('underline')));
+
+document.getElementById('obs-limpar').addEventListener('click', () => {
+  if (!campoObsEl.textContent.trim()) return; // já tá vazio
+  if (!confirm('Limpar todo o texto desta observação?')) return;
+  obsSnapshotAntes();
+  campoObsEl.innerHTML = '';
+  obsEditandoDesdeSnapshot = true;
+  obsSalvarAgora();
+});
+
+document.getElementById('obs-desfazer').addEventListener('click', () => {
+  if (!obsHistorico.length) return;
+  campoObsEl.innerHTML = obsHistorico.pop();
+  obsEditandoDesdeSnapshot = false;
+  atualizarBotaoDesfazer();
+  obsSalvarAgora();
+});
+
+// Enter quebra linha com <br> (não cria <div>/<p> aninhado) — mantém o HTML
+// salvo simples e previsível tanto pra reabrir quanto pra imprimir no PDF
+document.execCommand('defaultParagraphSeparator', false, 'br');
+
+// Esconde a seção de Observações no PDF quando ela não escreveu nada nesse
+// período — evita imprimir um quadro vazio
+window.addEventListener('beforeprint', () => {
+  const painel = campoObsEl.closest('.obs-painel');
+  if (painel) painel.classList.toggle('obs-vazio-impressao', !campoObsEl.textContent.trim());
+});
 
 // Diferença entre o período atual e o anterior — vira tanto o "selinho" dos
 // cartões quanto a frase automática do texto do relatório
@@ -2655,9 +2797,13 @@ function renderTabelaExportar(mesReferencia) {
     { titulo: 'Não agendamentos', valor: s => s.naoAgendados }
   ];
 
-  const cabecalho = `<tr><th>Indicador</th>${meses.map(d => `<th>${MESES_ABREV[d.getMonth()]}/${String(d.getFullYear()).slice(2)}</th>`).join('')}</tr>`;
+  // a última coluna é sempre o mês do relatório que ela tá vendo agora — fica
+  // destacada na tabela/PDF pra diferenciar de cara dos meses de comparação
+  const indiceAtual = meses.length - 1;
 
-  const linhaHtml = l => `<tr><td>${escapeHtml(l.titulo)}</td>${statsPorMes.map(s => `<td>${l.valor(s)}</td>`).join('')}</tr>`;
+  const cabecalho = `<tr><th>Indicador</th>${meses.map((d, i) => `<th${i === indiceAtual ? ' class="coluna-atual"' : ''}>${MESES_ABREV[d.getMonth()]}/${String(d.getFullYear()).slice(2)}</th>`).join('')}</tr>`;
+
+  const linhaHtml = l => `<tr><td>${escapeHtml(l.titulo)}</td>${statsPorMes.map((s, i) => `<td${i === indiceAtual ? ' class="coluna-atual"' : ''}>${l.valor(s)}</td>`).join('')}</tr>`;
 
   const corpoPrincipal = linhasPrincipais.map(linhaHtml).join('');
   const corpoMotivos = motivosComValor.length
@@ -2720,10 +2866,26 @@ function renderRelatorios() {
 
   const obsCfg = obsDoPeriodo(chaveObs);
   const campoObs = document.getElementById('relatorio-obs');
-  campoObs.value = obsCfg.texto;
+  const trocouPeriodoObs = chaveObs !== obsHistoricoPeriodoKey;
+  // enquanto ela tá com o cursor/seleção dentro do campo, uma atualização do
+  // Firestore (inclusive o eco da gravação que ela acabou de fazer) não pode
+  // reescrever o conteúdo por cima — senão perde a seleção no meio de um
+  // negrito/sublinhado/tamanho em sequência, ou o cursor pula enquanto ela
+  // ainda tá digitando; só recarrega quando não tá focado nele, ou quando o
+  // período realmente mudou
+  if (document.activeElement !== campoObs || trocouPeriodoObs) {
+    campoObs.innerHTML = obsTextoParaHtml(obsCfg);
+  }
   campoObs.dataset.chave = chaveObs;
-  aplicarEstiloObs(obsCfg);
   document.getElementById('relatorio-obs-status').textContent = '';
+  // "Desfazer" é por período — troca de mês/semana não deve deixar desfazer
+  // ir parar no texto de um período diferente
+  if (trocouPeriodoObs) {
+    obsHistorico = [];
+    obsHistoricoPeriodoKey = chaveObs;
+    obsEditandoDesdeSnapshot = false;
+  }
+  atualizarBotaoDesfazer();
 }
 
 // ============================================================

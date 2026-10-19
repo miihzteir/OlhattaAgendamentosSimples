@@ -193,7 +193,9 @@
   .delta-alta{background:#e4f3ec;color:#1a9566;}
   .delta-queda{background:#fbe9e7;color:#c0442c;}
   .delta-igual{background:var(--creme-escuro);color:var(--texto-claro);}
-  #relatorio-obs{min-height:110px;}
+  .obs-editor{width:100%;min-height:110px;padding:10px 12px;border:1.5px solid var(--borda);border-radius:12px;font-size:14px;line-height:1.6;background:var(--creme);transition:.15s;overflow-wrap:anywhere;}
+  .obs-editor:focus{outline:none;border-color:var(--verde-pinho-claro);background:var(--branco);}
+  .obs-editor:empty:before{content:attr(data-placeholder);color:var(--texto-claro);pointer-events:none;}
   .obs-status{font-size:12px;color:var(--verde-pinho);font-weight:600;min-height:1em;}
   .obs-toolbar{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
   .obs-tbtn{min-width:32px;height:32px;padding:0 9px;border-radius:8px;border:1px solid var(--borda);background:var(--branco);color:var(--texto);font-size:13px;font-weight:700;cursor:pointer;transition:.12s;}
@@ -599,6 +601,13 @@
     .tabela-exportar-pdf th:first-child, .tabela-exportar-pdf td:first-child{text-align:left;}
     .tabela-exportar-pdf thead th{background:#f0f0f0;color:#2b2b2b;}
     .tabela-exportar-pdf .linha-grupo td{background:#f3f3f3;font-weight:600;text-align:left;}
+    /* mês do relatório que ela tá vendo, destacado na tabela do PDF */
+    .tabela-exportar-pdf td.coluna-atual{background:#e3efe6;font-weight:700;}
+    .tabela-exportar-pdf th.coluna-atual{background:#cfe3d5!important;}
+    /* o que ela escreveu em Observações agora entra no PDF; some do PDF só
+       quando o campo está vazio, pra não imprimir um quadro em branco */
+    .obs-painel.obs-vazio-impressao{display:none!important;}
+    .obs-editor{border:none!important;background:#fff!important;padding:0!important;}
   }
 </style>
 </head>
@@ -877,21 +886,24 @@
         <div id="relatorio-motivos"></div>
       </div>
 
-      <div class="painel-secao no-imprimir">
+      <div class="painel-secao obs-painel">
         <div class="painel-secao-header">
           <h2>Observações</h2>
-          <span class="obs-status" id="relatorio-obs-status"></span>
+          <span class="obs-status no-imprimir" id="relatorio-obs-status"></span>
         </div>
         <div class="obs-toolbar no-imprimir">
-          <button type="button" class="obs-tbtn" id="obs-fonte-menos" title="Diminuir a letra">A&minus;</button>
-          <button type="button" class="obs-tbtn" id="obs-fonte-normal" title="Tamanho normal da letra">A</button>
-          <button type="button" class="obs-tbtn" id="obs-fonte-mais" title="Aumentar a letra">A+</button>
+          <button type="button" class="obs-tbtn" id="obs-fonte-menos" title="Diminuir a letra do trecho selecionado">A&minus;</button>
+          <button type="button" class="obs-tbtn" id="obs-fonte-normal" title="Tamanho normal no trecho selecionado">A</button>
+          <button type="button" class="obs-tbtn" id="obs-fonte-mais" title="Aumentar a letra do trecho selecionado">A+</button>
           <span class="obs-tbtn-sep"></span>
-          <button type="button" class="obs-tbtn" id="obs-negrito" title="Negrito"><b>N</b></button>
-          <button type="button" class="obs-tbtn" id="obs-sublinhado" title="Sublinhado"><u>S</u></button>
+          <button type="button" class="obs-tbtn" id="obs-negrito" title="Negrito no trecho selecionado"><b>N</b></button>
+          <button type="button" class="obs-tbtn" id="obs-sublinhado" title="Sublinhado no trecho selecionado"><u>S</u></button>
+          <span class="obs-tbtn-sep"></span>
+          <button type="button" class="obs-tbtn" id="obs-desfazer" title="Desfazer última alteração" disabled>↺ Desfazer</button>
+          <button type="button" class="obs-tbtn" id="obs-limpar" title="Limpar todo o texto">Limpar tudo</button>
         </div>
         <div class="campo">
-          <textarea id="relatorio-obs" placeholder="Escreva aqui observações sobre este período..."></textarea>
+          <div id="relatorio-obs" class="obs-editor" contenteditable="true" data-placeholder="Escreva aqui observações sobre este período..."></div>
         </div>
       </div>
     </section>
