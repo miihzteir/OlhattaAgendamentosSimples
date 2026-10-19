@@ -2593,13 +2593,55 @@ function montarTextoRelatorio(stats, statsAnt, emAnterior, aAnterior) {
   return paragrafos;
 }
 
+// Quantos meses entram lado a lado na tabela de exportação do PDF
+const MESES_TABELA_EXPORTAR = 6;
+
+// Tabela resumida só de números, usada exclusivamente no PDF exportado (fica
+// escondida na tela normal, ver CSS) — mostra os últimos 6 meses lado a lado
+// em vez de comparar só com o mês anterior, pra dar pra ver a evolução de
+// cada número com o tempo numa folha só, sem cartão nem texto corrido
+function renderTabelaExportar(mesReferencia) {
+  const cont = document.getElementById('relatorio-tabela-exportar');
+  if (!cont) return;
+
+  const meses = [];
+  for (let i = MESES_TABELA_EXPORTAR - 1; i >= 0; i--) {
+    const d = new Date(mesReferencia.getFullYear(), mesReferencia.getMonth() - i, 1);
+    meses.push(d);
+  }
+  const statsPorMes = meses.map(d => statsDoMes(mesKeyDe(d)));
+
+  const motivosComValor = state.categorias.motivos.filter(m => statsPorMes.some(s => (s.porMotivo[m] || 0) > 0));
+
+  const linhasPrincipais = [
+    { titulo: 'Total de contatos', valor: s => s.total },
+    { titulo: 'Total de agendamentos', valor: s => s.consultasEAcompanhamentos + s.cirurgias },
+    { titulo: 'Consultas e acompanhamentos', valor: s => s.consultasEAcompanhamentos },
+    { titulo: 'Cirurgias', valor: s => s.cirurgias },
+    { titulo: 'Desmarques', valor: s => s.desmarques },
+    { titulo: 'Não agendamentos', valor: s => s.naoAgendados }
+  ];
+
+  const cabecalho = `<tr><th>Indicador</th>${meses.map(d => `<th>${MESES_ABREV[d.getMonth()]}/${String(d.getFullYear()).slice(2)}</th>`).join('')}</tr>`;
+
+  const linhaHtml = l => `<tr><td>${escapeHtml(l.titulo)}</td>${statsPorMes.map(s => `<td>${l.valor(s)}</td>`).join('')}</tr>`;
+
+  const corpoPrincipal = linhasPrincipais.map(linhaHtml).join('');
+  const corpoMotivos = motivosComValor.length
+    ? `<tr class="linha-grupo"><td colspan="${meses.length + 1}">Motivos de desmarque/não agendamento</td></tr>` +
+      motivosComValor.map(m => linhaHtml({ titulo: m, valor: s => s.porMotivo[m] || 0 })).join('')
+    : '';
+
+  cont.innerHTML = `<table class="tabela-exportar-pdf"><thead>${cabecalho}</thead><tbody>${corpoPrincipal}${corpoMotivos}</tbody></table>`;
+}
+
 function renderRelatorios() {
   document.getElementById('relatorio-modo-mensal').classList.toggle('ativo', relatorioModo === 'mensal');
   document.getElementById('relatorio-modo-semanal').classList.toggle('ativo', relatorioModo === 'semanal');
   document.getElementById('relatorio-nav-mensal').hidden = relatorioModo !== 'mensal';
   document.getElementById('relatorio-nav-semanal').hidden = relatorioModo !== 'semanal';
 
-  let stats, statsAnt, tituloRelatorio, emAnterior, aAnterior, chaveObs;
+  let stats, statsAnt, tituloRelatorio, emAnterior, aAnterior, chaveObs, mesReferenciaExportar;
 
   if (relatorioModo === 'mensal') {
     const mesKey = mesKeyDe(relatorioMesData);
@@ -2612,6 +2654,7 @@ function renderRelatorios() {
     emAnterior = 'em ' + nomeMesAnterior;
     aAnterior = 'a ' + nomeMesAnterior;
     chaveObs = 'm-' + mesKey;
+    mesReferenciaExportar = relatorioMesData;
     document.getElementById('relatorio-mes-rotulo').textContent = rotuloMes(relatorioMesData);
   } else {
     const inicio = relatorioSemanaInicio;
@@ -2625,6 +2668,7 @@ function renderRelatorios() {
     emAnterior = 'na semana anterior';
     aAnterior = 'à semana anterior';
     chaveObs = 's-' + strDeDate(inicio);
+    mesReferenciaExportar = inicio;
     document.getElementById('relatorio-semana-rotulo').textContent = rotuloSemana;
   }
 
@@ -2632,6 +2676,7 @@ function renderRelatorios() {
   renderCardsRelatorio(stats, statsAnt);
   document.getElementById('relatorio-texto').innerHTML = montarTextoRelatorio(stats, statsAnt, emAnterior, aAnterior).map(p => `<p>${escapeHtml(p)}</p>`).join('');
   renderMotivosRelatorio(stats);
+  renderTabelaExportar(mesReferenciaExportar);
 
   const obsCfg = obsDoPeriodo(chaveObs);
   const campoObs = document.getElementById('relatorio-obs');

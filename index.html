@@ -203,6 +203,10 @@
   .relatorio-motivos-resumo .linha b{color:var(--verde-pinho);background:var(--creme);border-radius:999px;padding:1px 9px;font-size:12.5px;}
   .relatorio-motivos-lista{display:flex;flex-direction:column;gap:12px;max-height:420px;overflow-y:auto;padding-right:4px;}
   .relatorio-motivo-item{border:1px solid var(--borda);border-radius:12px;padding:12px 14px;background:var(--creme);}
+  /* Tabela de exportação do PDF: só existe pra impressão — fica escondida na
+     tela normal (ela continua vendo cartões, resumo e motivos aqui) e só
+     aparece no PDF exportado, no lugar de tudo isso, em formato de tabela */
+  .relatorio-tabela-exportar{display:none;}
   .relatorio-motivo-cabeca{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin-bottom:6px;}
   .relatorio-motivo-cabeca b{color:var(--texto);}
   .relatorio-motivo-cabeca .delta{margin-top:0;}
@@ -578,6 +582,15 @@
     html, body, main, #app{height:auto!important;overflow:visible!important;background:#fff!important;}
     .painel-secao, .card{box-shadow:none!important;border:1px solid #ccc!important;}
     .relatorio-motivos-lista{max-height:none!important;overflow:visible!important;}
+    /* No PDF exportado só entra a tabela resumida — cartões, resumo
+       automático, motivos e observações ficam só na tela (classe
+       no-imprimir, já escondida acima) */
+    .relatorio-tabela-exportar{display:block!important;margin-top:4px;}
+    .tabela-exportar-pdf{width:100%;border-collapse:collapse;font-size:12px;}
+    .tabela-exportar-pdf th, .tabela-exportar-pdf td{border:1px solid #ccc;padding:6px 8px;text-align:center;color:#2b2b2b;}
+    .tabela-exportar-pdf th:first-child, .tabela-exportar-pdf td:first-child{text-align:left;}
+    .tabela-exportar-pdf thead th{background:#f0f0f0;color:#2b2b2b;}
+    .tabela-exportar-pdf .linha-grupo td{background:#f3f3f3;font-weight:600;text-align:left;}
   }
 </style>
 </head>
@@ -842,19 +855,21 @@
 
       <h2 class="relatorio-titulo" id="relatorio-titulo">Relatório mensal — Setembro 2026</h2>
 
-      <div class="grid-cards" id="relatorio-cards"></div>
+      <div class="relatorio-tabela-exportar" id="relatorio-tabela-exportar"></div>
+
+      <div class="grid-cards no-imprimir" id="relatorio-cards"></div>
 
       <div class="painel-secao relatorio-texto-box">
         <h2>Resumo automático</h2>
         <div id="relatorio-texto"></div>
       </div>
 
-      <div class="painel-secao">
+      <div class="painel-secao no-imprimir">
         <h2>Motivos de desmarque e não agendamento</h2>
         <div id="relatorio-motivos"></div>
       </div>
 
-      <div class="painel-secao">
+      <div class="painel-secao no-imprimir">
         <div class="painel-secao-header">
           <h2>Observações</h2>
           <span class="obs-status" id="relatorio-obs-status"></span>
