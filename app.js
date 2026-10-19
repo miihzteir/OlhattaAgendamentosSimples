@@ -2475,12 +2475,21 @@ function selinhoVariacao(atual, anterior) {
 }
 
 // emAnterior: "em setembro" / "na semana anterior" — pro caso "não tinha nada pra comparar"
-// aAnterior: "a setembro" / "à semana anterior" — pro "igual a..." e "em relação a..."
-function fraseVariacao(atual, anterior, emAnterior, aAnterior) {
+// aAnterior: "a setembro" / "à semana anterior" — pro "igual a..." e "comparado a..."
+//
+// Fala corrida, sem parêntese nem travessão — ela não gostou do jeito mais
+// "técnico" de antes. "fraseBase" é o pedaço que já diz o número (tipo
+// "foram agendados 3"); quando dá pra continuar a mesma frase (aumento ou
+// queda), a comparação emenda com vírgula, do jeito que alguém falaria
+// normalmente; quando não encaixa numa oração só (período novo ou igual),
+// vira uma frase curta à parte começando com "Isso"
+function comVariacao(fraseBase, atual, anterior, emAnterior, aAnterior) {
   const v = variacaoRelatorio(atual, anterior);
-  if (v.tipo === 'novo') return `não teve nada disso ${emAnterior}, não dá pra comparar`;
-  if (v.tipo === 'igual') return `igual ${aAnterior}`;
-  return `${v.tipo === 'alta' ? 'um aumento' : 'uma queda'} de ${v.pct}% em relação ${aAnterior} (que teve ${anterior})`;
+  if (v.tipo === 'alta' || v.tipo === 'queda') {
+    return `${fraseBase}, ${v.tipo === 'alta' ? 'um aumento' : 'uma queda'} de ${v.pct}% comparado ${aAnterior}, que teve ${anterior}.`;
+  }
+  if (v.tipo === 'igual') return `${fraseBase}. Isso ficou igual ${aAnterior}.`;
+  return `${fraseBase}. Isso não tinha acontecido ${emAnterior}, então não dá pra comparar.`;
 }
 
 function renderCardsRelatorio(stats, statsAnt) {
@@ -2533,19 +2542,50 @@ function renderMotivosRelatorio(stats) {
   cont.innerHTML = htmlResumo + htmlDetalhes;
 }
 
+// monta uma lista natural tipo "Sem Deslocamento e Sem Interesse" ou
+// "Sem Deslocamento, Sem Interesse e Sem Resposta" com os motivos mais
+// frequentes do período (até 3, do maior pro menor) — pro resumo também
+// falar o "porquê" dos desmarques/não agendamentos, não só o número
+function listaMotivosNatural(porMotivo) {
+  const ordenados = Object.entries(porMotivo).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  if (!ordenados.length) return '';
+  const nomes = ordenados.slice(0, 3).map(([m]) => m);
+  if (nomes.length === 1) return nomes[0];
+  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]}`;
+  return `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`;
+}
+
 function montarTextoRelatorio(stats, statsAnt, emAnterior, aAnterior) {
   const paragrafos = [];
 
-  paragrafos.push(`Teve ${stats.total} contato${stats.total === 1 ? '' : 's'} no total — ${stats.porIniciativa.cliente} vieram do próprio cliente e ${stats.porIniciativa.eu} foram você quem entrou em contato. Isso é ${fraseVariacao(stats.total, statsAnt.total, emAnterior, aAnterior)}.`);
+  paragrafos.push(comVariacao(
+    `Teve ${stats.total} ${stats.total === 1 ? 'contato' : 'contatos'} no total, sendo ${stats.porIniciativa.cliente} que vieram do próprio cliente e ${stats.porIniciativa.eu} que foram você quem entrou em contato`,
+    stats.total, statsAnt.total, emAnterior, aAnterior
+  ));
 
   if (stats.consultasEAcompanhamentos + stats.cirurgias + statsAnt.consultasEAcompanhamentos + statsAnt.cirurgias > 0) {
-    paragrafos.push(`Foram agendados ${stats.consultasEAcompanhamentos} consulta(s)/acompanhamento(s) (${fraseVariacao(stats.consultasEAcompanhamentos, statsAnt.consultasEAcompanhamentos, emAnterior, aAnterior)}) e ${stats.cirurgias} cirurgia(s) (${fraseVariacao(stats.cirurgias, statsAnt.cirurgias, emAnterior, aAnterior)}).`);
+    const fraseConsultas = comVariacao(`Entre consultas e acompanhamentos, foram agendados ${stats.consultasEAcompanhamentos}`, stats.consultasEAcompanhamentos, statsAnt.consultasEAcompanhamentos, emAnterior, aAnterior);
+    const fraseCirurgias = comVariacao(`Já as cirurgias somaram ${stats.cirurgias}`, stats.cirurgias, statsAnt.cirurgias, emAnterior, aAnterior);
+    paragrafos.push(`${fraseConsultas} ${fraseCirurgias}`);
   } else {
     paragrafos.push('Nenhuma consulta, acompanhamento ou cirurgia foi agendada neste período.');
   }
 
   if (stats.naoAgendados > 0 || stats.desmarques > 0) {
-    paragrafos.push(`${stats.naoAgendados} contato(s) não agendaram e ${stats.desmarques} desmarcaram atendimento.`);
+    const fraseNaoAgendou = comVariacao(
+      stats.naoAgendados === 1 ? 'Já 1 contato não agendou' : `Já ${stats.naoAgendados} contatos não agendaram`,
+      stats.naoAgendados, statsAnt.naoAgendados, emAnterior, aAnterior
+    );
+    const fraseDesmarcou = comVariacao(
+      stats.desmarques === 1 ? '1 contato desmarcou o atendimento' : `${stats.desmarques} contatos desmarcaram o atendimento`,
+      stats.desmarques, statsAnt.desmarques, emAnterior, aAnterior
+    );
+    let texto = `${fraseNaoAgendou} ${fraseDesmarcou}`;
+
+    const motivos = listaMotivosNatural(stats.porMotivo);
+    if (motivos) texto += ` Os principais motivos foram ${motivos}.`;
+
+    paragrafos.push(texto);
   } else {
     paragrafos.push('Ninguém deixou de agendar nem desmarcou atendimento neste período.');
   }
