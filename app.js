@@ -2559,7 +2559,7 @@ function montarTextoRelatorio(stats, statsAnt, emAnterior, aAnterior) {
   const paragrafos = [];
 
   paragrafos.push(comVariacao(
-    `Teve ${stats.total} ${stats.total === 1 ? 'contato' : 'contatos'} no total, sendo ${stats.porIniciativa.cliente} que vieram do próprio cliente e ${stats.porIniciativa.eu} que foram você quem entrou em contato`,
+    `Teve ${stats.total} ${stats.total === 1 ? 'contato' : 'contatos'} no total, sendo ${stats.porIniciativa.cliente} que vieram do próprio cliente e ${stats.porIniciativa.eu} que partiram de nós`,
     stats.total, statsAnt.total, emAnterior, aAnterior
   ));
 
