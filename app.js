@@ -44,7 +44,8 @@ let state = {
   nf: { servicosSalvos: [] },
   nfEntries: [],
   linksUteis: [],
-  linksUteisNf: []
+  linksUteisNf: [],
+  relatorioObs: {}
 };
 let carregouDoc = false;
 let carregouEntries = false;
@@ -53,10 +54,31 @@ let carregouNfEntries = false;
 let currentDate = new Date();          // controla mês/ano da aba Agendamentos
 let nfCurrentDate = new Date();        // controla mês/ano da aba Notas Fiscais
 let anoAnual = new Date().getFullYear(); // controla ano da aba Comparativo Anual
+let relatorioModo = 'mensal';            // 'mensal' ou 'semanal' — aba Relatórios
+let relatorioMesData = new Date();       // mês mostrado no relatório mensal
+let relatorioSemanaInicio = inicioSemanaDe(new Date()); // segunda-feira da semana mostrada no relatório semanal
 let editingEntryId = null;
 let editingNfId = null;
 let nfNomeSincronizado = true; // enquanto true, "Nome completo (NF)" copia o que for digitado em "Cliente"
-let abaAtiva = 'inicio';
+// lista de abas válidas pra endereço do site (#relatorios etc.) — mesmos
+// valores dos data-aba dos botões da barra lateral; "relatorios" também
+// aceita uma subaba depois da barra (#relatorios/semanal), pro endereço
+// copiado levar direto pro Mensal ou Semanal certo, não só pra aba
+const ABAS_VALIDAS = ['inicio', 'agendamentos', 'metas', 'anual', 'relatorios', 'notas'];
+const SUBABAS_VALIDAS = { relatorios: ['mensal', 'semanal'] };
+
+// lê a aba (e a subaba, se tiver) do endereço do site; se o link foi
+// aberto com algo tipo ".../#relatorios/semanal", já abre direto lá — a
+// subaba lida aqui já atualiza relatorioModo também
+function abaDaUrl() {
+  const partes = (location.hash || '').replace('#', '').split('/');
+  const aba = ABAS_VALIDAS.includes(partes[0]) ? partes[0] : 'inicio';
+  const sub = partes[1];
+  if (SUBABAS_VALIDAS[aba] && SUBABAS_VALIDAS[aba].includes(sub)) relatorioModo = sub;
+  return aba;
+}
+let abaAtiva = abaDaUrl();
+let navegacaoInicialPronta = false; // garante que o endereço inicial só é normalizado uma vez
 let filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: '', iniciativa: '', periodo: '' };
 let nfFiltros = { busca: '', cidade: '', querNf: '', periodo: '', dataInicio: '', dataFim: '' };
 let inicioData = hojeStr(); // data escolhida na aba Início (padrão: hoje)
@@ -104,6 +126,13 @@ auth.onAuthStateChanged(user => {
     document.getElementById('tela-login').classList.remove('mostrar');
     document.getElementById('app').style.display = 'block';
     document.getElementById('user-email').textContent = user.email;
+    // deixa o endereço do site já mostrando "#aba" desde a entrada (mesmo
+    // quando abriu sem nenhum # na URL), pra copiar o link funcionar mesmo
+    // sem ter trocado de aba ainda
+    if (!navegacaoInicialPronta) {
+      navegacaoInicialPronta = true;
+      history.replaceState({ olhattaNav: true, tipo: 'aba', aba: abaAtiva }, '', urlDaAba(abaAtiva));
+    }
     iniciarEscuta();
     iniciarEscutaNF();
   } else {
@@ -136,6 +165,7 @@ function iniciarEscuta() {
       state.metas = d.metas || {};
       state.linksUteis = Array.isArray(d.linksUteis) ? d.linksUteis : [];
       state.linksUteisNf = Array.isArray(d.linksUteisNf) ? d.linksUteisNf : [];
+      state.relatorioObs = d.relatorioObs || {};
       carregouDoc = true;
       atualizarStatusSync(snap.metadata.hasPendingWrites);
       renderTudo();
@@ -320,6 +350,12 @@ function salvarCampoMeta(mesKey, campo, valor) {
   return docRef.update({ ['metas.' + mesKey + '.' + campo]: valor });
 }
 
+// ---- Observação do relatório: uma por período (um texto pro mês de outubro,
+// outro pra semana de 19/10 a 25/10 etc.), grava só a chave daquele período ----
+function salvarObservacaoRelatorio(chave, valor) {
+  return docRef.update({ ['relatorioObs.' + chave]: valor });
+}
+
 // ---- Links úteis: botões de atalho que ela mesma cadastra (ex: planilha,
 // WhatsApp da clínica, site) — Agendamentos e Notas Fiscais têm cada um a
 // SUA PRÓPRIA listinha agora (campos separados no Firestore), pra não misturar
@@ -498,6 +534,22 @@ function mostrarToast(msg) {
 function pad2(n) { return String(n).padStart(2, '0'); }
 function hojeStr() { const d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
 function mesKeyDe(date) { return date.getFullYear() + '-' + pad2(date.getMonth()+1); }
+function strDeDate(date) { return date.getFullYear() + '-' + pad2(date.getMonth()+1) + '-' + pad2(date.getDate()); }
+// Semana cheia (segunda a domingo) que contém a data informada — usada no
+// relatório semanal, pra sempre mostrar uma semana completa
+function inicioSemanaDe(date) {
+  const d = new Date(date);
+  const dia = d.getDay(); // 0 = domingo, 1 = segunda, ... 6 = sábado
+  const deslocamento = dia === 0 ? -6 : 1 - dia;
+  d.setDate(d.getDate() + deslocamento);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function fimSemanaDe(inicioSemana) {
+  const d = new Date(inicioSemana);
+  d.setDate(d.getDate() + 6);
+  return d;
+}
 function parseDataStr(str) {
   if (!str) return null;
   const partes = str.split('-');
@@ -613,6 +665,13 @@ function statsDoMes(mesKey) {
   motivos.forEach(m => { porMotivo[m] = 0; });
   naoAgendadosLista.forEach(e => { if (e.motivo) porMotivo[e.motivo] = (porMotivo[e.motivo]||0) + 1; });
 
+  // observações escritas por ela em cada desmarque/não agendou (campo
+  // "Detalhes do motivo") — o relatório mostra isso pra ela não precisar
+  // caçar na tabela pra lembrar o que anotou
+  const motivosDetalhados = naoAgendadosLista
+    .filter(e => e.detalheMotivo)
+    .map(e => ({ nome: e.nome, telefone: e.telefone, status: e.status, motivo: e.motivo, detalhe: e.detalheMotivo }));
+
   // quantos contatos do mês foram ela quem ligou vs o cliente quem procurou
   // (campo "Quem entrou em contato" do formulário, padrão é "cliente")
   const porIniciativa = { eu: 0, cliente: 0 };
@@ -630,8 +689,42 @@ function statsDoMes(mesKey) {
   const naoAgendados = naoAgendadosLista.filter(e => e.status === 'Não Agendou').length;
 
   return {
-    total: contatos.length, porTipo, porCidade, porClinica, porMotivo, porIniciativa, porSemana,
+    total: contatos.length, porTipo, porCidade, porClinica, porMotivo, motivosDetalhados, porIniciativa, porSemana,
     consultasEAcompanhamentos, cirurgias, desmarques, naoAgendados
+  };
+}
+
+// Mesma ideia do statsDoMes, mas pra um intervalo de datas qualquer (usado no
+// relatório semanal) — só os números que o relatório usa, sem o detalhamento
+// por tipo/cidade/clínica/motivo que só a aba Agendamentos precisa
+function statsDoPeriodo(inicioStr, fimStr) {
+  const contatos = state.entries.filter(e => e.dataContato && e.dataContato >= inicioStr && e.dataContato <= fimStr && !e.mesmoContatoOutroAnimal);
+  const agendados = state.entries.filter(e => STATUS_AGENDADOS.includes(e.status) && e.dataAgendamento && e.dataAgendamento >= inicioStr && e.dataAgendamento <= fimStr);
+  const naoAgendadosLista = state.entries.filter(e => {
+    const data = e.dataAgendamento || e.dataContato;
+    return STATUS_NAO_AGENDADOS.includes(e.status) && data && data >= inicioStr && data <= fimStr;
+  });
+
+  const porIniciativa = { eu: 0, cliente: 0 };
+  contatos.forEach(e => { if (e.iniciativa === 'eu') porIniciativa.eu++; else porIniciativa.cliente++; });
+
+  const porMotivo = {};
+  state.categorias.motivos.forEach(m => { porMotivo[m] = 0; });
+  naoAgendadosLista.forEach(e => { if (e.motivo) porMotivo[e.motivo] = (porMotivo[e.motivo]||0) + 1; });
+
+  const motivosDetalhados = naoAgendadosLista
+    .filter(e => e.detalheMotivo)
+    .map(e => ({ nome: e.nome, telefone: e.telefone, status: e.status, motivo: e.motivo, detalhe: e.detalheMotivo }));
+
+  return {
+    total: contatos.length,
+    porIniciativa,
+    porMotivo,
+    motivosDetalhados,
+    consultasEAcompanhamentos: agendados.filter(e => e.tipo === 'Consulta' || e.tipo === 'Acompanhamento').length,
+    cirurgias: agendados.filter(e => e.tipo === 'Cirurgia').length,
+    desmarques: naoAgendadosLista.filter(e => e.status === 'Desmarcou').length,
+    naoAgendados: naoAgendadosLista.filter(e => e.status === 'Não Agendou').length
   };
 }
 
@@ -672,10 +765,12 @@ function renderAba() {
   document.getElementById('aba-metas').hidden = abaAtiva !== 'metas';
   document.getElementById('aba-notas').hidden = abaAtiva !== 'notas';
   document.getElementById('aba-anual').hidden = abaAtiva !== 'anual';
+  document.getElementById('aba-relatorios').hidden = abaAtiva !== 'relatorios';
   document.querySelectorAll('nav.abas button').forEach(b => b.classList.toggle('ativa', b.dataset.aba === abaAtiva));
   if (abaAtiva === 'inicio') renderInicio();
   else if (abaAtiva === 'agendamentos' || abaAtiva === 'metas') renderAgendamentos();
   else if (abaAtiva === 'notas') { if (carregouNfDoc && carregouNfEntries) renderNotas(); }
+  else if (abaAtiva === 'relatorios') renderRelatorios();
   else renderAnual();
 }
 
@@ -695,14 +790,35 @@ function modalAberto() {
   return IDS_MODAIS.find(id => { const el = document.getElementById(id); return el && !el.hidden; }) || null;
 }
 
-function pushEstadoNavegacao(estado) {
-  history.pushState(Object.assign({ olhattaNav: true }, estado), '', location.href);
+// url opcional: quando passada, o endereço do site muda junto (usado pra
+// trocar de aba); quando omitida, mantém o endereço atual (usado pra abrir
+// modal, que não deve mexer no "#aba" que já tava no endereço)
+function pushEstadoNavegacao(estado, url) {
+  history.pushState(Object.assign({ olhattaNav: true }, estado), '', url || location.href);
+}
+
+// endereço (".../#aba" ou ".../#aba/subaba") de uma aba, pra copiar/colar e
+// abrir direto nela — já inclui a subaba atual (Mensal/Semanal) quando a
+// aba tiver uma, pra o link levar pro lugar exato
+function urlDaAba(aba) {
+  const sufixo = (SUBABAS_VALIDAS[aba] && aba === 'relatorios') ? '/' + relatorioModo : '';
+  return location.pathname + location.search + '#' + aba + sufixo;
 }
 
 function navegarParaAba(novaAba) {
   if (novaAba === abaAtiva) return;
   abaAtiva = novaAba;
-  pushEstadoNavegacao({ tipo: 'aba', aba: novaAba });
+  pushEstadoNavegacao({ tipo: 'aba', aba: novaAba }, urlDaAba(novaAba));
+  renderAba();
+}
+
+// troca de subaba (hoje só existe em Relatórios: Mensal/Semanal) — segue o
+// mesmo esquema da troca de aba: empilha no histórico e muda o endereço
+// junto, pra funcionar com o botão voltar e com copiar/colar o link
+function navegarParaSubaba(aba, novaSubaba) {
+  if (aba === 'relatorios' && novaSubaba === relatorioModo) return;
+  if (aba === 'relatorios') relatorioModo = novaSubaba;
+  pushEstadoNavegacao({ tipo: 'aba', aba: aba, subaba: novaSubaba }, urlDaAba(aba));
   renderAba();
 }
 
@@ -736,7 +852,9 @@ window.addEventListener('popstate', ev => {
 
   const estado = ev.state;
   if (estado && estado.olhattaNav && estado.tipo === 'aba' && estado.aba) {
-    abaAtiva = estado.aba;
+    // relê o endereço restaurado (location.hash já tá atualizado nesse
+    // ponto) pra pegar a aba E a subaba certas de uma vez só
+    abaAtiva = abaDaUrl();
     renderAba();
   } else if (!estado || !estado.olhattaNav) {
     // chegou na entrada de antes de qualquer navegação nossa (o "fundo" da
@@ -2265,6 +2383,222 @@ function renderResumoAnual(meses, defs) {
     const pct = somaTotal ? Math.round((total / somaTotal) * 100) : 0;
     return `<tr><td><span class="legenda-linha" style="background:${CORES_ANUAL[d.campo]}"></span>${escapeHtml(d.label)}</td><td>${total}</td><td>${pct}%</td></tr>`;
   }).join('');
+}
+
+// ============================================================
+// ABA RELATÓRIOS
+// ============================================================
+document.getElementById('relatorio-modo-mensal').addEventListener('click', () => navegarParaSubaba('relatorios', 'mensal'));
+document.getElementById('relatorio-modo-semanal').addEventListener('click', () => navegarParaSubaba('relatorios', 'semanal'));
+
+document.getElementById('relatorio-mes-anterior').addEventListener('click', () => { relatorioMesData.setMonth(relatorioMesData.getMonth()-1); renderRelatorios(); });
+document.getElementById('relatorio-mes-proximo').addEventListener('click', () => { relatorioMesData.setMonth(relatorioMesData.getMonth()+1); renderRelatorios(); });
+document.getElementById('relatorio-mes-hoje').addEventListener('click', () => { relatorioMesData = new Date(); renderRelatorios(); });
+
+document.getElementById('relatorio-semana-anterior').addEventListener('click', () => { relatorioSemanaInicio.setDate(relatorioSemanaInicio.getDate()-7); renderRelatorios(); });
+document.getElementById('relatorio-semana-proximo').addEventListener('click', () => { relatorioSemanaInicio.setDate(relatorioSemanaInicio.getDate()+7); renderRelatorios(); });
+document.getElementById('relatorio-semana-hoje').addEventListener('click', () => { relatorioSemanaInicio = inicioSemanaDe(new Date()); renderRelatorios(); });
+
+document.getElementById('btn-exportar-pdf').addEventListener('click', () => window.print());
+
+// ---- Observação do relatório: texto livre por período, com controles de
+// aumentar/diminuir/normalizar o tamanho da letra e negrito/sublinhado ----
+const OBS_PADRAO = { texto: '', tamanho: 14, negrito: false, sublinhado: false };
+const OBS_FONTE_MIN = 12, OBS_FONTE_MAX = 22, OBS_FONTE_PASSO = 2, OBS_FONTE_NORMAL = 14;
+
+function obsDoPeriodo(chave) {
+  return Object.assign({}, OBS_PADRAO, state.relatorioObs[chave] || {});
+}
+
+function aplicarEstiloObs(cfg) {
+  const campo = document.getElementById('relatorio-obs');
+  campo.style.fontSize = cfg.tamanho + 'px';
+  campo.style.fontWeight = cfg.negrito ? '700' : '400';
+  campo.style.textDecoration = cfg.sublinhado ? 'underline' : 'none';
+  document.getElementById('obs-negrito').classList.toggle('ativo', cfg.negrito);
+  document.getElementById('obs-sublinhado').classList.toggle('ativo', cfg.sublinhado);
+  document.getElementById('obs-fonte-menos').disabled = cfg.tamanho <= OBS_FONTE_MIN;
+  document.getElementById('obs-fonte-mais').disabled = cfg.tamanho >= OBS_FONTE_MAX;
+}
+
+// Salva sozinho (mesmo padrão de autosave já usado em Metas), sempre na chave
+// do período que está na tela no momento — guardada no próprio campo via
+// dataset, pra não salvar no período errado se ela trocar de mês/semana rápido
+function salvarEstadoObs(chave, cfg) {
+  state.relatorioObs[chave] = cfg; // atualização otimista local
+  document.getElementById('relatorio-obs-status').textContent = 'Salvando...';
+  salvarObservacaoRelatorio(chave, cfg)
+    .then(() => { document.getElementById('relatorio-obs-status').textContent = 'Salvo'; })
+    .catch(err => { document.getElementById('relatorio-obs-status').textContent = ''; mostrarToast('Não foi possível salvar a observação: ' + err.message); });
+}
+
+document.getElementById('relatorio-obs').addEventListener('blur', ev => {
+  const chave = ev.target.dataset.chave;
+  if (!chave) return;
+  const atual = obsDoPeriodo(chave);
+  if (ev.target.value === atual.texto) return; // nada mudou, não grava à toa
+  salvarEstadoObs(chave, Object.assign({}, atual, { texto: ev.target.value }));
+});
+
+function botaoObsClicado(mudar) {
+  const campo = document.getElementById('relatorio-obs');
+  const chave = campo.dataset.chave;
+  if (!chave) return;
+  const cfg = Object.assign({}, obsDoPeriodo(chave), { texto: campo.value }, mudar(obsDoPeriodo(chave)));
+  aplicarEstiloObs(cfg);
+  salvarEstadoObs(chave, cfg);
+}
+
+document.getElementById('obs-fonte-menos').addEventListener('click', () => botaoObsClicado(cfg => ({ tamanho: Math.max(OBS_FONTE_MIN, cfg.tamanho - OBS_FONTE_PASSO) })));
+document.getElementById('obs-fonte-mais').addEventListener('click', () => botaoObsClicado(cfg => ({ tamanho: Math.min(OBS_FONTE_MAX, cfg.tamanho + OBS_FONTE_PASSO) })));
+document.getElementById('obs-fonte-normal').addEventListener('click', () => botaoObsClicado(() => ({ tamanho: OBS_FONTE_NORMAL })));
+document.getElementById('obs-negrito').addEventListener('click', () => botaoObsClicado(cfg => ({ negrito: !cfg.negrito })));
+document.getElementById('obs-sublinhado').addEventListener('click', () => botaoObsClicado(cfg => ({ sublinhado: !cfg.sublinhado })));
+
+// Diferença entre o período atual e o anterior — vira tanto o "selinho" dos
+// cartões quanto a frase automática do texto do relatório
+// A porcentagem fica travada em no máximo 100% (pediu pra não aparecer tipo
+// "aumento de 167%", que confunde — acima de 100% já é "dobrou ou mais",
+// então trava em 100% pra ficar sempre fácil de entender de cabeça
+function variacaoRelatorio(atual, anterior) {
+  if (anterior === 0) return { tipo: atual === 0 ? 'igual' : 'novo', pct: 0 };
+  if (atual === anterior) return { tipo: 'igual', pct: 0 };
+  const pct = Math.min(100, Math.round(Math.abs(atual - anterior) / anterior * 100));
+  return { tipo: atual > anterior ? 'alta' : 'queda', pct };
+}
+
+function selinhoVariacao(atual, anterior) {
+  const v = variacaoRelatorio(atual, anterior);
+  if (v.tipo === 'novo') return `<span class="delta delta-alta">novo</span>`;
+  if (v.tipo === 'igual') return `<span class="delta delta-igual">= período anterior</span>`;
+  return `<span class="delta ${v.tipo === 'alta' ? 'delta-alta' : 'delta-queda'}">${v.tipo === 'alta' ? '▲' : '▼'} ${v.pct}%</span>`;
+}
+
+// emAnterior: "em setembro" / "na semana anterior" — pro caso "não tinha nada pra comparar"
+// aAnterior: "a setembro" / "à semana anterior" — pro "igual a..." e "em relação a..."
+function fraseVariacao(atual, anterior, emAnterior, aAnterior) {
+  const v = variacaoRelatorio(atual, anterior);
+  if (v.tipo === 'novo') return `não teve nada disso ${emAnterior}, não dá pra comparar`;
+  if (v.tipo === 'igual') return `igual ${aAnterior}`;
+  return `${v.tipo === 'alta' ? 'um aumento' : 'uma queda'} de ${v.pct}% em relação ${aAnterior} (que teve ${anterior})`;
+}
+
+function renderCardsRelatorio(stats, statsAnt) {
+  const linhas = [
+    { titulo: 'Contatos no período', atual: stats.total, ant: statsAnt.total },
+    { titulo: 'Cliente entrou em contato', atual: stats.porIniciativa.cliente, ant: statsAnt.porIniciativa.cliente },
+    { titulo: 'Eu entrei em contato', atual: stats.porIniciativa.eu, ant: statsAnt.porIniciativa.eu },
+    { titulo: 'Consultas/Acompanhamentos agendados', atual: stats.consultasEAcompanhamentos, ant: statsAnt.consultasEAcompanhamentos },
+    { titulo: 'Cirurgias agendadas', atual: stats.cirurgias, ant: statsAnt.cirurgias },
+    { titulo: 'Não agendaram', atual: stats.naoAgendados, ant: statsAnt.naoAgendados },
+    { titulo: 'Desmarcaram', atual: stats.desmarques, ant: statsAnt.desmarques }
+  ];
+  document.getElementById('relatorio-cards').innerHTML = linhas.map(l => `
+    <div class="card">
+      <h3>${l.titulo}</h3>
+      <div class="num">${l.atual}</div>
+      ${selinhoVariacao(l.atual, l.ant)}
+    </div>
+  `).join('');
+}
+
+// Mostra o resumo por motivo (Sem Deslocamento, Sem Interesse etc.) e, abaixo,
+// as observações que ela escreveu em cada desmarque/não agendou — pra não
+// precisar caçar na tabela de Agendamentos pra lembrar o que anotou
+function renderMotivosRelatorio(stats) {
+  const cont = document.getElementById('relatorio-motivos');
+  if (stats.desmarques + stats.naoAgendados === 0) {
+    cont.innerHTML = '<div class="sub">Nenhum desmarque ou não agendamento neste período.</div>';
+    return;
+  }
+
+  const motivosComValor = Object.entries(stats.porMotivo).filter(([,v]) => v > 0);
+  const htmlResumo = motivosComValor.length
+    ? `<div class="relatorio-motivos-resumo">${motivosComValor.map(([m,v]) => `<div class="linha"><span>${escapeHtml(m)}</span><b>${v}</b></div>`).join('')}</div>`
+    : '';
+
+  const htmlDetalhes = stats.motivosDetalhados.length
+    ? `<div class="relatorio-motivos-lista">${stats.motivosDetalhados.map(d => `
+        <div class="relatorio-motivo-item">
+          <div class="relatorio-motivo-cabeca">
+            <b>${escapeHtml(d.nome || '(sem nome)')}</b>
+            <span>${telefoneClicavel(d.telefone)}</span>
+            <span class="delta ${d.status === 'Desmarcou' ? 'delta-queda' : 'delta-igual'}">${escapeHtml(d.status)}${d.motivo ? ' · ' + escapeHtml(d.motivo) : ''}</span>
+          </div>
+          <p>${escapeHtml(d.detalhe)}</p>
+        </div>
+      `).join('')}</div>`
+    : '<div class="sub">Nenhuma observação escrita neste período.</div>';
+
+  cont.innerHTML = htmlResumo + htmlDetalhes;
+}
+
+function montarTextoRelatorio(stats, statsAnt, emAnterior, aAnterior) {
+  const paragrafos = [];
+
+  paragrafos.push(`Teve ${stats.total} contato${stats.total === 1 ? '' : 's'} no total — ${stats.porIniciativa.cliente} vieram do próprio cliente e ${stats.porIniciativa.eu} foram você quem entrou em contato. Isso é ${fraseVariacao(stats.total, statsAnt.total, emAnterior, aAnterior)}.`);
+
+  if (stats.consultasEAcompanhamentos + stats.cirurgias + statsAnt.consultasEAcompanhamentos + statsAnt.cirurgias > 0) {
+    paragrafos.push(`Foram agendados ${stats.consultasEAcompanhamentos} consulta(s)/acompanhamento(s) (${fraseVariacao(stats.consultasEAcompanhamentos, statsAnt.consultasEAcompanhamentos, emAnterior, aAnterior)}) e ${stats.cirurgias} cirurgia(s) (${fraseVariacao(stats.cirurgias, statsAnt.cirurgias, emAnterior, aAnterior)}).`);
+  } else {
+    paragrafos.push('Nenhuma consulta, acompanhamento ou cirurgia foi agendada neste período.');
+  }
+
+  if (stats.naoAgendados > 0 || stats.desmarques > 0) {
+    paragrafos.push(`${stats.naoAgendados} contato(s) não agendaram e ${stats.desmarques} desmarcaram atendimento.`);
+  } else {
+    paragrafos.push('Ninguém deixou de agendar nem desmarcou atendimento neste período.');
+  }
+
+  return paragrafos;
+}
+
+function renderRelatorios() {
+  document.getElementById('relatorio-modo-mensal').classList.toggle('ativo', relatorioModo === 'mensal');
+  document.getElementById('relatorio-modo-semanal').classList.toggle('ativo', relatorioModo === 'semanal');
+  document.getElementById('relatorio-nav-mensal').hidden = relatorioModo !== 'mensal';
+  document.getElementById('relatorio-nav-semanal').hidden = relatorioModo !== 'semanal';
+
+  let stats, statsAnt, tituloRelatorio, emAnterior, aAnterior, chaveObs;
+
+  if (relatorioModo === 'mensal') {
+    const mesKey = mesKeyDe(relatorioMesData);
+    const dataMesAnterior = new Date(relatorioMesData);
+    dataMesAnterior.setMonth(dataMesAnterior.getMonth() - 1);
+    stats = statsDoMes(mesKey);
+    statsAnt = statsDoMes(mesKeyDe(dataMesAnterior));
+    tituloRelatorio = 'Relatório mensal — ' + rotuloMes(relatorioMesData);
+    const nomeMesAnterior = MESES[dataMesAnterior.getMonth()].toLowerCase();
+    emAnterior = 'em ' + nomeMesAnterior;
+    aAnterior = 'a ' + nomeMesAnterior;
+    chaveObs = 'm-' + mesKey;
+    document.getElementById('relatorio-mes-rotulo').textContent = rotuloMes(relatorioMesData);
+  } else {
+    const inicio = relatorioSemanaInicio;
+    const fim = fimSemanaDe(inicio);
+    const inicioAnt = new Date(inicio); inicioAnt.setDate(inicioAnt.getDate() - 7);
+    const fimAnt = new Date(fim); fimAnt.setDate(fimAnt.getDate() - 7);
+    stats = statsDoPeriodo(strDeDate(inicio), strDeDate(fim));
+    statsAnt = statsDoPeriodo(strDeDate(inicioAnt), strDeDate(fimAnt));
+    const rotuloSemana = formatarData(strDeDate(inicio)) + ' a ' + formatarData(strDeDate(fim));
+    tituloRelatorio = 'Relatório semanal — ' + rotuloSemana;
+    emAnterior = 'na semana anterior';
+    aAnterior = 'à semana anterior';
+    chaveObs = 's-' + strDeDate(inicio);
+    document.getElementById('relatorio-semana-rotulo').textContent = rotuloSemana;
+  }
+
+  document.getElementById('relatorio-titulo').textContent = tituloRelatorio;
+  renderCardsRelatorio(stats, statsAnt);
+  document.getElementById('relatorio-texto').innerHTML = montarTextoRelatorio(stats, statsAnt, emAnterior, aAnterior).map(p => `<p>${escapeHtml(p)}</p>`).join('');
+  renderMotivosRelatorio(stats);
+
+  const obsCfg = obsDoPeriodo(chaveObs);
+  const campoObs = document.getElementById('relatorio-obs');
+  campoObs.value = obsCfg.texto;
+  campoObs.dataset.chave = chaveObs;
+  aplicarEstiloObs(obsCfg);
+  document.getElementById('relatorio-obs-status').textContent = '';
 }
 
 // ============================================================

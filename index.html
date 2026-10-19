@@ -180,6 +180,33 @@
 
   /* ---------- CARDS GERAIS ---------- */
   .grid-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px;}
+  .relatorio-topo{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:20px;}
+  .relatorio-modo-toggle{display:flex;gap:8px;}
+  .relatorio-titulo{font-family:'Quicksand',sans-serif;color:var(--verde-pinho);font-size:19px;margin:0 0 16px;}
+  .relatorio-texto-box p{margin:0 0 12px;line-height:1.65;color:var(--texto);}
+  .relatorio-texto-box p:last-child{margin-bottom:0;}
+  .delta{display:inline-block;margin-top:8px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;}
+  .delta-alta{background:#e4f3ec;color:#1a9566;}
+  .delta-queda{background:#fbe9e7;color:#c0442c;}
+  .delta-igual{background:var(--creme-escuro);color:var(--texto-claro);}
+  #relatorio-obs{min-height:110px;}
+  .obs-status{font-size:12px;color:var(--verde-pinho);font-weight:600;min-height:1em;}
+  .obs-toolbar{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
+  .obs-tbtn{min-width:32px;height:32px;padding:0 9px;border-radius:8px;border:1px solid var(--borda);background:var(--branco);color:var(--texto);font-size:13px;font-weight:700;cursor:pointer;transition:.12s;}
+  .obs-tbtn:hover{border-color:var(--verde-pinho-claro);color:var(--verde-pinho);}
+  .obs-tbtn.ativo{background:var(--verde-pinho);border-color:var(--verde-pinho);color:var(--creme);}
+  .obs-tbtn:disabled{opacity:.4;cursor:default;}
+  .obs-tbtn-sep{width:1px;height:20px;background:var(--borda);margin:0 2px;}
+  .painel-secao .sub{font-size:13px;color:var(--texto-claro);}
+  .relatorio-motivos-resumo{display:flex;flex-wrap:wrap;gap:10px 22px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--borda);}
+  .relatorio-motivos-resumo .linha{display:flex;align-items:center;gap:7px;font-size:13px;}
+  .relatorio-motivos-resumo .linha b{color:var(--verde-pinho);background:var(--creme);border-radius:999px;padding:1px 9px;font-size:12.5px;}
+  .relatorio-motivos-lista{display:flex;flex-direction:column;gap:12px;max-height:420px;overflow-y:auto;padding-right:4px;}
+  .relatorio-motivo-item{border:1px solid var(--borda);border-radius:12px;padding:12px 14px;background:var(--creme);}
+  .relatorio-motivo-cabeca{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin-bottom:6px;}
+  .relatorio-motivo-cabeca b{color:var(--texto);}
+  .relatorio-motivo-cabeca .delta{margin-top:0;}
+  .relatorio-motivo-item p{margin:0;font-size:13.5px;line-height:1.5;color:var(--texto);}
   .card{background:var(--branco);border:1px solid var(--borda);border-radius:var(--raio);padding:18px 20px;box-shadow:var(--sombra);transition:.15s;}
   .card:hover{box-shadow:0 12px 26px rgba(138,98,64,.18);transform:translateY(-3px);}
   .card h3{margin:0 0 10px;font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--texto-claro);font-weight:700;}
@@ -536,6 +563,21 @@
        metade da largura visível da tabela — empilhados ficam bem mais estreitos */
     #painel-tabela td.acoes{flex-direction:column;gap:4px;padding:8px;}
     #painel-tabela td.acoes .btn.sm{padding:5px 8px;font-size:11px;width:100%;text-align:center;}
+    .relatorio-topo{flex-direction:column;align-items:stretch;}
+    .relatorio-modo-toggle, .relatorio-topo .nav-mes, .relatorio-topo > .btn{width:100%;}
+    .relatorio-modo-toggle .chip-periodo{flex:1;text-align:center;}
+    .relatorio-topo .nav-mes{justify-content:space-between;}
+  }
+
+  /* Exportar PDF: usa a tela de impressão do próprio navegador (ela escolhe
+     "Salvar como PDF"), sem depender de nenhuma biblioteca externa — só
+     esconde o menu, os botões de navegação e mostra o relatório em si */
+  @media print{
+    .sidebar, .sidebar-rodape, nav.abas, .abas-contexto, .no-imprimir, .overlay, .toast{display:none!important;}
+    main{margin-left:0!important;max-width:none!important;padding:0!important;}
+    html, body, main, #app{height:auto!important;overflow:visible!important;background:#fff!important;}
+    .painel-secao, .card{box-shadow:none!important;border:1px solid #ccc!important;}
+    .relatorio-motivos-lista{max-height:none!important;overflow:visible!important;}
   }
 </style>
 </head>
@@ -589,6 +631,10 @@
       <button data-aba="anual">
         <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 20V11M12 20V4M20 20v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 20.5h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         <span>Comparativo Anual</span>
+      </button>
+      <button data-aba="relatorios">
+        <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 16v-4M12 16V8M15 16v-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>Relatórios</span>
       </button>
       <button data-aba="notas">
         <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -768,6 +814,61 @@
             <thead><tr><th>Mês</th><th>Contatos</th><th>Consultas/Acomp.</th><th>Cirurgias</th></tr></thead>
             <tbody id="tabela-anual-corpo"></tbody>
           </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- ABA RELATÓRIOS ---------- -->
+    <section id="aba-relatorios" hidden>
+      <div class="relatorio-topo no-imprimir">
+        <div class="relatorio-modo-toggle">
+          <button type="button" class="btn outline sm chip-periodo ativo" id="relatorio-modo-mensal">Mensal</button>
+          <button type="button" class="btn outline sm chip-periodo" id="relatorio-modo-semanal">Semanal</button>
+        </div>
+        <div class="nav-mes" id="relatorio-nav-mensal">
+          <button id="relatorio-mes-anterior">&#8249;</button>
+          <div class="rotulo" id="relatorio-mes-rotulo">Setembro 2026</div>
+          <button id="relatorio-mes-proximo">&#8250;</button>
+          <button class="hoje" id="relatorio-mes-hoje">Mês atual</button>
+        </div>
+        <div class="nav-mes" id="relatorio-nav-semanal" hidden>
+          <button id="relatorio-semana-anterior">&#8249;</button>
+          <div class="rotulo" id="relatorio-semana-rotulo">06/10/2026 a 12/10/2026</div>
+          <button id="relatorio-semana-proximo">&#8250;</button>
+          <button class="hoje" id="relatorio-semana-hoje">Semana atual</button>
+        </div>
+        <button type="button" class="btn marrom" id="btn-exportar-pdf">Exportar PDF</button>
+      </div>
+
+      <h2 class="relatorio-titulo" id="relatorio-titulo">Relatório mensal — Setembro 2026</h2>
+
+      <div class="grid-cards" id="relatorio-cards"></div>
+
+      <div class="painel-secao relatorio-texto-box">
+        <h2>Resumo automático</h2>
+        <div id="relatorio-texto"></div>
+      </div>
+
+      <div class="painel-secao">
+        <h2>Motivos de desmarque e não agendamento</h2>
+        <div id="relatorio-motivos"></div>
+      </div>
+
+      <div class="painel-secao">
+        <div class="painel-secao-header">
+          <h2>Observações</h2>
+          <span class="obs-status" id="relatorio-obs-status"></span>
+        </div>
+        <div class="obs-toolbar no-imprimir">
+          <button type="button" class="obs-tbtn" id="obs-fonte-menos" title="Diminuir a letra">A&minus;</button>
+          <button type="button" class="obs-tbtn" id="obs-fonte-normal" title="Tamanho normal da letra">A</button>
+          <button type="button" class="obs-tbtn" id="obs-fonte-mais" title="Aumentar a letra">A+</button>
+          <span class="obs-tbtn-sep"></span>
+          <button type="button" class="obs-tbtn" id="obs-negrito" title="Negrito"><b>N</b></button>
+          <button type="button" class="obs-tbtn" id="obs-sublinhado" title="Sublinhado"><u>S</u></button>
+        </div>
+        <div class="campo">
+          <textarea id="relatorio-obs" placeholder="Escreva aqui observações sobre este período..."></textarea>
         </div>
       </div>
     </section>
