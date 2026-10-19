@@ -670,7 +670,7 @@ function statsDoMes(mesKey) {
   // caçar na tabela pra lembrar o que anotou
   const motivosDetalhados = naoAgendadosLista
     .filter(e => e.detalheMotivo)
-    .map(e => ({ nome: e.nome, telefone: e.telefone, status: e.status, motivo: e.motivo, detalhe: e.detalheMotivo }));
+    .map(e => ({ nome: e.nome, telefone: e.telefone, tipo: e.tipo, status: e.status, motivo: e.motivo, detalhe: e.detalheMotivo }));
 
   // quantos contatos do mês foram ela quem ligou vs o cliente quem procurou
   // (campo "Quem entrou em contato" do formulário, padrão é "cliente")
@@ -714,7 +714,7 @@ function statsDoPeriodo(inicioStr, fimStr) {
 
   const motivosDetalhados = naoAgendadosLista
     .filter(e => e.detalheMotivo)
-    .map(e => ({ nome: e.nome, telefone: e.telefone, status: e.status, motivo: e.motivo, detalhe: e.detalheMotivo }));
+    .map(e => ({ nome: e.nome, telefone: e.telefone, tipo: e.tipo, status: e.status, motivo: e.motivo, detalhe: e.detalheMotivo }));
 
   return {
     total: contatos.length,
@@ -2401,6 +2401,21 @@ document.getElementById('relatorio-semana-hoje').addEventListener('click', () =>
 
 document.getElementById('btn-exportar-pdf').addEventListener('click', () => window.print());
 
+// ---- Filtro por tipo na lista de observações de desmarque/não agendamento ----
+// "Todos" por padrão; guarda o período atual junto pra o filtro resetar
+// sozinho pra "Todos" quando ela troca de mês/semana (senão ia parecer que
+// sumiu gente da lista sem motivo ao navegar)
+let relatorioMotivoFiltroTipo = 'todos';
+let relatorioMotivoFiltroPeriodoKey = null;
+let relatorioStatsAtual = null;
+
+document.getElementById('relatorio-motivos').addEventListener('click', ev => {
+  const chip = ev.target.closest('.motivo-filtro-chip');
+  if (!chip || !relatorioStatsAtual) return;
+  relatorioMotivoFiltroTipo = chip.dataset.tipo;
+  renderMotivosRelatorio(relatorioStatsAtual);
+});
+
 // ---- Observação do relatório: texto livre por período, com controles de
 // aumentar/diminuir/normalizar o tamanho da letra e negrito/sublinhado ----
 const OBS_PADRAO = { texto: '', tamanho: 14, negrito: false, sublinhado: false };
@@ -2497,7 +2512,7 @@ function renderCardsRelatorio(stats, statsAnt) {
     { titulo: 'Contatos no período', atual: stats.total, ant: statsAnt.total },
     { titulo: 'Cliente entrou em contato', atual: stats.porIniciativa.cliente, ant: statsAnt.porIniciativa.cliente },
     { titulo: 'Eu entrei em contato', atual: stats.porIniciativa.eu, ant: statsAnt.porIniciativa.eu },
-    { titulo: 'Consultas/Acompanhamentos agendados', atual: stats.consultasEAcompanhamentos, ant: statsAnt.consultasEAcompanhamentos },
+    { titulo: 'Consultas/Acompa­nhamentos agendados', atual: stats.consultasEAcompanhamentos, ant: statsAnt.consultasEAcompanhamentos },
     { titulo: 'Cirurgias agendadas', atual: stats.cirurgias, ant: statsAnt.cirurgias },
     { titulo: 'Não agendaram', atual: stats.naoAgendados, ant: statsAnt.naoAgendados },
     { titulo: 'Desmarcaram', atual: stats.desmarques, ant: statsAnt.desmarques }
@@ -2515,6 +2530,7 @@ function renderCardsRelatorio(stats, statsAnt) {
 // as observações que ela escreveu em cada desmarque/não agendou — pra não
 // precisar caçar na tabela de Agendamentos pra lembrar o que anotou
 function renderMotivosRelatorio(stats) {
+  relatorioStatsAtual = stats;
   const cont = document.getElementById('relatorio-motivos');
   if (stats.desmarques + stats.naoAgendados === 0) {
     cont.innerHTML = '<div class="sub">Nenhum desmarque ou não agendamento neste período.</div>';
@@ -2526,20 +2542,37 @@ function renderMotivosRelatorio(stats) {
     ? `<div class="relatorio-motivos-resumo">${motivosComValor.map(([m,v]) => `<div class="linha"><span>${escapeHtml(m)}</span><b>${v}</b></div>`).join('')}</div>`
     : '';
 
-  const htmlDetalhes = stats.motivosDetalhados.length
-    ? `<div class="relatorio-motivos-lista">${stats.motivosDetalhados.map(d => `
+  // filtro por tipo (Consulta/Acompanhamento/Cirurgia...) só na lista de
+  // observações escritas, pra ela achar rápido "o que foi desmarcado" sem
+  // precisar ler item por item quando tem muita gente no período
+  const tiposComValor = state.categorias.tipos.filter(t => stats.motivosDetalhados.some(d => d.tipo === t));
+  const htmlFiltro = tiposComValor.length > 1
+    ? `<div class="relatorio-motivos-filtro no-imprimir">
+        <button type="button" class="motivo-filtro-chip${relatorioMotivoFiltroTipo === 'todos' ? ' ativo' : ''}" data-tipo="todos">Todos</button>
+        ${tiposComValor.map(t => `<button type="button" class="motivo-filtro-chip${relatorioMotivoFiltroTipo === t ? ' ativo' : ''}" data-tipo="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('')}
+      </div>`
+    : '';
+
+  const listaFiltrada = relatorioMotivoFiltroTipo === 'todos'
+    ? stats.motivosDetalhados
+    : stats.motivosDetalhados.filter(d => d.tipo === relatorioMotivoFiltroTipo);
+
+  const htmlDetalhes = listaFiltrada.length
+    ? `<div class="relatorio-motivos-lista">${listaFiltrada.map(d => `
         <div class="relatorio-motivo-item">
           <div class="relatorio-motivo-cabeca">
             <b>${escapeHtml(d.nome || '(sem nome)')}</b>
             <span>${telefoneClicavel(d.telefone)}</span>
-            <span class="delta ${d.status === 'Desmarcou' ? 'delta-queda' : 'delta-igual'}">${escapeHtml(d.status)}${d.motivo ? ' · ' + escapeHtml(d.motivo) : ''}</span>
+            <span class="delta ${d.status === 'Desmarcou' ? 'delta-queda' : 'delta-igual'}">${d.tipo ? escapeHtml(d.tipo) + ' · ' : ''}${escapeHtml(d.status)}${d.motivo ? ' · ' + escapeHtml(d.motivo) : ''}</span>
           </div>
           <p>${escapeHtml(d.detalhe)}</p>
         </div>
       `).join('')}</div>`
-    : '<div class="sub">Nenhuma observação escrita neste período.</div>';
+    : (stats.motivosDetalhados.length
+        ? '<div class="sub">Nenhuma observação escrita neste período para esse tipo.</div>'
+        : '<div class="sub">Nenhuma observação escrita neste período.</div>');
 
-  cont.innerHTML = htmlResumo + htmlDetalhes;
+  cont.innerHTML = htmlResumo + htmlFiltro + htmlDetalhes;
 }
 
 // monta uma lista natural tipo "Sem Deslocamento e Sem Interesse" ou
@@ -2675,6 +2708,13 @@ function renderRelatorios() {
   document.getElementById('relatorio-titulo').textContent = tituloRelatorio;
   renderCardsRelatorio(stats, statsAnt);
   document.getElementById('relatorio-texto').innerHTML = montarTextoRelatorio(stats, statsAnt, emAnterior, aAnterior).map(p => `<p>${escapeHtml(p)}</p>`).join('');
+  // o filtro por tipo da lista de motivos volta pra "Todos" sozinho só quando
+  // o período realmente muda (não a cada atualização do Firestore) — senão
+  // ela ia ver o filtro sumir do nada enquanto só tava olhando a lista
+  if (chaveObs !== relatorioMotivoFiltroPeriodoKey) {
+    relatorioMotivoFiltroTipo = 'todos';
+    relatorioMotivoFiltroPeriodoKey = chaveObs;
+  }
   renderMotivosRelatorio(stats);
   renderTabelaExportar(mesReferenciaExportar);
 

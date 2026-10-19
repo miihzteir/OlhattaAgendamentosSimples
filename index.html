@@ -45,8 +45,12 @@
   body{margin:0;font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--creme);color:var(--texto);overflow-x:hidden;}
   /* rede de segurança: nome/e-mail/link comprido sem espaço nunca estoura a
      margem do card/coluna onde está, em nenhuma tela — quebra só quando
-     realmente precisa, então não muda a aparência do texto normal */
-  *{overflow-wrap:anywhere;}
+     realmente precisa, então não muda a aparência do texto normal. Quando
+     uma palavra comum (não um link/telefone) precisa mesmo quebrar, usa
+     hífen na sílaba certa (ex: "Agen-\ndamentos") em vez de cortar no meio
+     sem hífen nenhum; se o navegador não souber separar a sílaba, cai de
+     volta pra quebra simples (sem deixar vazar da margem de qualquer jeito) */
+  *{overflow-wrap:anywhere;hyphens:auto;-webkit-hyphens:auto;-ms-hyphens:auto;}
   h1,h2,h3,.fonte-titulo{font-family:'Quicksand','Nunito',sans-serif;}
   img{max-width:100%;}
   [hidden]{display:none!important;}
@@ -201,6 +205,10 @@
   .relatorio-motivos-resumo{display:flex;flex-wrap:wrap;gap:10px 22px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--borda);}
   .relatorio-motivos-resumo .linha{display:flex;align-items:center;gap:7px;font-size:13px;}
   .relatorio-motivos-resumo .linha b{color:var(--verde-pinho);background:var(--creme);border-radius:999px;padding:1px 9px;font-size:12.5px;}
+  .relatorio-motivos-filtro{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+  .motivo-filtro-chip{font-family:'Quicksand',sans-serif;padding:6px 14px;border-radius:999px;border:1.5px solid var(--borda);background:transparent;color:var(--texto);font-size:12px;font-weight:700;cursor:pointer;transition:.15s;}
+  .motivo-filtro-chip:hover{border-color:var(--verde-pinho);color:var(--verde-pinho);}
+  .motivo-filtro-chip.ativo{background:var(--verde-pinho);border-color:var(--verde-pinho);color:var(--creme);}
   .relatorio-motivos-lista{display:flex;flex-direction:column;gap:12px;max-height:420px;overflow-y:auto;padding-right:4px;}
   .relatorio-motivo-item{border:1px solid var(--borda);border-radius:12px;padding:12px 14px;background:var(--creme);}
   /* Tabela de exportação do PDF: só existe pra impressão — fica escondida na
@@ -622,7 +630,7 @@
   <aside class="sidebar">
     <div class="sidebar-marca">
       <img src="icons/icon-192.png?v=6" alt="">
-      <div><strong>Agenda Olhatta</strong><span>Contatos &amp; Agendamentos</span></div>
+      <div><strong>Agenda Olhatta</strong><span>Contatos &amp; Agen&shy;damentos</span></div>
     </div>
 
     <div class="abas-contexto" id="abas-contexto">Hoje é dia <strong id="abas-data-hoje">—</strong></div>
@@ -634,7 +642,7 @@
       </button>
       <button data-aba="agendamentos">
         <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="16" rx="3.5" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 10h17" stroke="currentColor" stroke-width="1.8"/><path d="M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        <span>Agendamentos</span>
+        <span>Agen&shy;damentos</span>
         <span class="badge-aba" id="badge-atrasados" hidden title="Contatos aguardando"></span>
       </button>
       <button data-aba="metas">
@@ -643,7 +651,7 @@
       </button>
       <button data-aba="anual">
         <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 20V11M12 20V4M20 20v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 20.5h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        <span>Comparativo Anual</span>
+        <span>Compara&shy;tivo Anual</span>
       </button>
       <button data-aba="relatorios">
         <svg class="icone-aba" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 16v-4M12 16V8M15 16v-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
