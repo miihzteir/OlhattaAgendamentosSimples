@@ -2829,12 +2829,16 @@ function renderTabelaExportar(mesReferencia) {
   const tiposAgendadosComValor = tipos.filter(t => statsPorMes.some(s => (s.porTipo[t]?.agendados || 0) > 0));
   const tiposNaoAgendadosComValor = tipos.filter(t => statsPorMes.some(s => (s.porTipo[t]?.naoAgendados || 0) > 0));
 
-  // só os 5 motivos mais frequentes somando os 6 meses, do mais pro menos
-  // comum — listar todo motivo cadastrado deixava a tabela comprida demais
+  // só os 5 motivos mais frequentes NO MÊS do relatório (a última coluna) —
+  // a mesma base que o texto do "Resumo automático" usa pra dizer quais são
+  // os principais motivos; ordenar pela soma dos 6 meses fazia a tabela
+  // mostrar um motivo que nem apareceu neste mês (e esconder um que é
+  // justamente o 1º/2º/3º citado no texto), o que parecia dado errado
+  const statsMesAtualTabela = statsPorMes[statsPorMes.length - 1];
   const motivosTop5 = state.categorias.motivos
-    .map(m => ({ m, total: statsPorMes.reduce((soma, s) => soma + (s.porMotivo[m] || 0), 0) }))
-    .filter(x => x.total > 0)
-    .sort((a, b) => b.total - a.total)
+    .map(m => ({ m, atual: statsMesAtualTabela.porMotivo[m] || 0 }))
+    .filter(x => x.atual > 0)
+    .sort((a, b) => b.atual - a.atual)
     .slice(0, 5)
     .map(x => x.m);
 
