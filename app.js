@@ -1868,7 +1868,7 @@ function renderTabela(mesKey) {
       ${celObsClicavel(e.obs, '', 'Observação')}
       <td class="acoes">
         <button class="btn outline sm btn-editar">Editar</button>
-        ${e.status === 'Agendado' ? '<button class="btn vermelho sm btn-desmarcar" title="Marcar como Desmarcou rapidinho">✕ Desmarcar</button>' : ''}
+        ${e.status === 'Agendado' ? '<button class="btn vermelho sm btn-desmarcar" title="Desmarcar e escolher o motivo">✕ Desmarcar</button>' : ''}
       </td>
     </tr>
   `;
@@ -1881,25 +1881,15 @@ function renderTabela(mesKey) {
     });
   });
 
-  // Atalho rápido: marca como Desmarcou direto na tabela, sem abrir o
-  // formulário inteiro (o motivo/detalhe, se ela quiser, continua dando pra
-  // completar depois clicando em Editar)
+  // Atalho rápido: já abre o formulário com status Desmarcou escolhido (campo
+  // de motivo aparecendo na hora), pra ela já marcar o motivo sem precisar de
+  // um segundo passo em Editar depois
   corpo.querySelectorAll('.btn-desmarcar').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.closest('tr').dataset.id;
       const entry = state.entries.find(e => e.id === id);
       if (!entry) return;
-      if (!confirm('Marcar "' + (entry.nome || 'esse contato') + '" como Desmarcou?')) return;
-      const atualizado = Object.assign({}, entry, {
-        status: 'Desmarcou',
-        dataAgendamento: hojeStr(),
-        motivo: entry.motivo || '',
-        detalheMotivo: entry.detalheMotivo || ''
-      });
-      btn.disabled = true;
-      atualizarContato(id, atualizado)
-        .then(() => mostrarToast('Marcado como Desmarcou'))
-        .catch(err => { mostrarToast('Não foi possível marcar: ' + err.message); btn.disabled = false; });
+      abrirModalEntry(Object.assign({}, entry, { status: 'Desmarcou' }));
     });
   });
 
