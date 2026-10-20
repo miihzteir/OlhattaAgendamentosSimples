@@ -597,7 +597,7 @@
     .sidebar, .sidebar-rodape, nav.abas, .abas-contexto, .no-imprimir, .overlay, .toast{display:none!important;}
     main{margin-left:0!important;max-width:none!important;padding:0!important;}
     html, body, main, #app{height:auto!important;overflow:visible!important;background:#fff!important;}
-    .painel-secao, .card{box-shadow:none!important;border:1px solid #ccc!important;}
+    .painel-secao, .card{box-shadow:none!important;border:1px solid #ccc!important;border-radius:0!important;}
     .relatorio-motivos-lista{max-height:none!important;overflow:visible!important;}
     /* nunca deixa uma linha da tabela ou um quadro (resumo/observações) ser
        cortado ao meio quando a página vira — empurra o bloco inteiro pra
@@ -611,6 +611,8 @@
     .relatorio-tabela-exportar{display:block!important;margin-top:4px;}
     .tabela-exportar-pdf{width:100%;border-collapse:collapse;font-size:12px;}
     .tabela-exportar-pdf th, .tabela-exportar-pdf td{border:1px solid #ccc;padding:6px 8px;text-align:center;color:#2b2b2b;}
+    /* o cabeçalho da tabela (fora do PDF) tem canto arredondado — reto aqui também */
+    .tabela-exportar-pdf thead tr th:first-child, .tabela-exportar-pdf thead tr th:last-child{border-radius:0!important;}
     .tabela-exportar-pdf th:first-child, .tabela-exportar-pdf td:first-child{text-align:left;}
     .tabela-exportar-pdf thead th{background:#f0f0f0;color:#2b2b2b;}
     .tabela-exportar-pdf .linha-grupo td{background:#f3f3f3;font-weight:600;text-align:left;}
