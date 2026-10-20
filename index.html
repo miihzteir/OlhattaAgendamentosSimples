@@ -586,12 +586,22 @@
   /* Exportar PDF: usa a tela de impressão do próprio navegador (ela escolhe
      "Salvar como PDF"), sem depender de nenhuma biblioteca externa — só
      esconde o menu, os botões de navegação e mostra o relatório em si */
+  /* margem própria em vez de depender do padrão do navegador — garante que
+     nada encosta na borda da folha (o que parecia "cortado") em qualquer
+     impressora/configuração */
+  @page{margin:14mm 12mm;}
   @media print{
     .sidebar, .sidebar-rodape, nav.abas, .abas-contexto, .no-imprimir, .overlay, .toast{display:none!important;}
     main{margin-left:0!important;max-width:none!important;padding:0!important;}
     html, body, main, #app{height:auto!important;overflow:visible!important;background:#fff!important;}
     .painel-secao, .card{box-shadow:none!important;border:1px solid #ccc!important;}
     .relatorio-motivos-lista{max-height:none!important;overflow:visible!important;}
+    /* nunca deixa uma linha da tabela ou um quadro (resumo/observações) ser
+       cortado ao meio quando a página vira — empurra o bloco inteiro pra
+       página seguinte em vez de partir ele */
+    .tabela-exportar-pdf tr{break-inside:avoid;page-break-inside:avoid;}
+    .tabela-exportar-pdf thead{display:table-header-group;}
+    .painel-secao{break-inside:avoid;page-break-inside:avoid;}
     /* No PDF exportado só entra a tabela resumida — cartões, resumo
        automático, motivos e observações ficam só na tela (classe
        no-imprimir, já escondida acima) */

@@ -2720,6 +2720,24 @@ function listaMotivosNatural(porMotivo) {
   return `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`;
 }
 
+// Junta 2 números do mesmo parágrafo (consultas+cirurgias, ou não
+// agendou+desmarcou): quando as duas comparações com o período anterior
+// "resolvem" pro mesmo lado (as duas são inéditas, ou as duas ficaram iguais),
+// ter a mesma frase de fechamento repetida duas vezes seguidas ficava confuso
+// de ler — aqui junta numa frase de fechamento só nesse caso; quando as duas
+// comparações são diferentes entre si, cada uma mantém a sua própria
+function paragrafoDuplo(freseA, atualA, anteriorA, freseB, atualB, anteriorB, emAnterior, aAnterior) {
+  const vA = variacaoRelatorio(atualA, anteriorA);
+  const vB = variacaoRelatorio(atualB, anteriorB);
+  if (vA.tipo === vB.tipo && (vA.tipo === 'novo' || vA.tipo === 'igual')) {
+    const fechamento = vA.tipo === 'igual'
+      ? `Os dois ficaram iguais ${aAnterior}.`
+      : `Nenhum dos dois tinha acontecido ${emAnterior}, então não dá pra comparar.`;
+    return `${freseA}, e ${freseB.charAt(0).toLowerCase()}${freseB.slice(1)}. ${fechamento}`;
+  }
+  return `${comVariacao(freseA, atualA, anteriorA, emAnterior, aAnterior)} ${comVariacao(freseB, atualB, anteriorB, emAnterior, aAnterior)}`;
+}
+
 function montarTextoRelatorio(stats, statsAnt, emAnterior, aAnterior) {
   const paragrafos = [];
 
@@ -2729,23 +2747,24 @@ function montarTextoRelatorio(stats, statsAnt, emAnterior, aAnterior) {
   ));
 
   if (stats.consultasEAcompanhamentos + stats.cirurgias + statsAnt.consultasEAcompanhamentos + statsAnt.cirurgias > 0) {
-    const fraseConsultas = comVariacao(`Entre consultas e acompanhamentos, foram agendados ${stats.consultasEAcompanhamentos}`, stats.consultasEAcompanhamentos, statsAnt.consultasEAcompanhamentos, emAnterior, aAnterior);
-    const fraseCirurgias = comVariacao(`Já as cirurgias somaram ${stats.cirurgias}`, stats.cirurgias, statsAnt.cirurgias, emAnterior, aAnterior);
-    paragrafos.push(`${fraseConsultas} ${fraseCirurgias}`);
+    const freseConsultas = stats.consultasEAcompanhamentos === 1
+      ? 'Entre consultas e acompanhamentos, foi agendado 1'
+      : `Entre consultas e acompanhamentos, foram agendados ${stats.consultasEAcompanhamentos}`;
+    const freseCirurgias = `Já as cirurgias somaram ${stats.cirurgias}`;
+    paragrafos.push(paragrafoDuplo(freseConsultas, stats.consultasEAcompanhamentos, statsAnt.consultasEAcompanhamentos, freseCirurgias, stats.cirurgias, statsAnt.cirurgias, emAnterior, aAnterior));
   } else {
     paragrafos.push('Nenhuma consulta, acompanhamento ou cirurgia foi agendada neste período.');
   }
 
   if (stats.naoAgendados > 0 || stats.desmarques > 0) {
-    const fraseNaoAgendou = comVariacao(
-      stats.naoAgendados === 1 ? 'Já 1 contato não agendou' : `Já ${stats.naoAgendados} contatos não agendaram`,
-      stats.naoAgendados, statsAnt.naoAgendados, emAnterior, aAnterior
-    );
-    const fraseDesmarcou = comVariacao(
-      stats.desmarques === 1 ? '1 contato desmarcou o atendimento' : `${stats.desmarques} contatos desmarcaram o atendimento`,
-      stats.desmarques, statsAnt.desmarques, emAnterior, aAnterior
-    );
-    let texto = `${fraseNaoAgendou} ${fraseDesmarcou}`;
+    const freseNaoAgendou = stats.naoAgendados === 0
+      ? 'Ninguém deixou de agendar'
+      : (stats.naoAgendados === 1 ? 'Já 1 contato não agendou' : `Já ${stats.naoAgendados} contatos não agendaram`);
+    const freseDesmarcou = stats.desmarques === 0
+      ? 'Ninguém desmarcou o atendimento'
+      : (stats.desmarques === 1 ? '1 contato desmarcou o atendimento' : `${stats.desmarques} contatos desmarcaram o atendimento`);
+
+    let texto = paragrafoDuplo(freseNaoAgendou, stats.naoAgendados, statsAnt.naoAgendados, freseDesmarcou, stats.desmarques, statsAnt.desmarques, emAnterior, aAnterior);
 
     const motivos = listaMotivosNatural(stats.porMotivo);
     if (motivos) texto += ` Os principais motivos foram ${motivos}.`;
@@ -2776,13 +2795,25 @@ function renderTabelaExportar(mesReferencia) {
   }
   const statsPorMes = meses.map(d => statsDoMes(mesKeyDe(d)));
 
-  const motivosComValor = state.categorias.motivos.filter(m => statsPorMes.some(s => (s.porMotivo[m] || 0) > 0));
+  // agendados e não agendamentos cada um com sua própria quebra por tipo
+  // (Consulta/Acompanhamento/Cirurgia etc.) — só entra tipo que teve algum
+  // registro em pelo menos um dos 6 meses, pra não listar linha zerada à toa
+  const tipos = state.categorias.tipos;
+  const tiposAgendadosComValor = tipos.filter(t => statsPorMes.some(s => (s.porTipo[t]?.agendados || 0) > 0));
+  const tiposNaoAgendadosComValor = tipos.filter(t => statsPorMes.some(s => (s.porTipo[t]?.naoAgendados || 0) > 0));
+
+  // só os 5 motivos mais frequentes somando os 6 meses, do mais pro menos
+  // comum — listar todo motivo cadastrado deixava a tabela comprida demais
+  const motivosTop5 = state.categorias.motivos
+    .map(m => ({ m, total: statsPorMes.reduce((soma, s) => soma + (s.porMotivo[m] || 0), 0) }))
+    .filter(x => x.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5)
+    .map(x => x.m);
 
   const linhasPrincipais = [
     { titulo: 'Total de contatos', valor: s => s.total },
     { titulo: 'Total de agendamentos', valor: s => s.consultasEAcompanhamentos + s.cirurgias },
-    { titulo: 'Consultas e acompanhamentos', valor: s => s.consultasEAcompanhamentos },
-    { titulo: 'Cirurgias', valor: s => s.cirurgias },
     { titulo: 'Desmarques', valor: s => s.desmarques },
     { titulo: 'Não agendamentos', valor: s => s.naoAgendados }
   ];
@@ -2794,14 +2825,23 @@ function renderTabelaExportar(mesReferencia) {
   const cabecalho = `<tr><th>Indicador</th>${meses.map((d, i) => `<th${i === indiceAtual ? ' class="coluna-atual"' : ''}>${MESES_ABREV[d.getMonth()]}/${String(d.getFullYear()).slice(2)}</th>`).join('')}</tr>`;
 
   const linhaHtml = l => `<tr><td>${escapeHtml(l.titulo)}</td>${statsPorMes.map((s, i) => `<td${i === indiceAtual ? ' class="coluna-atual"' : ''}>${l.valor(s)}</td>`).join('')}</tr>`;
+  const linhaGrupo = titulo => `<tr class="linha-grupo"><td colspan="${meses.length + 1}">${escapeHtml(titulo)}</td></tr>`;
 
   const corpoPrincipal = linhasPrincipais.map(linhaHtml).join('');
-  const corpoMotivos = motivosComValor.length
-    ? `<tr class="linha-grupo"><td colspan="${meses.length + 1}">Motivos de desmarque/não agendamento</td></tr>` +
-      motivosComValor.map(m => linhaHtml({ titulo: m, valor: s => s.porMotivo[m] || 0 })).join('')
+
+  const corpoAgendadosPorTipo = tiposAgendadosComValor.length
+    ? linhaGrupo('Agendados por tipo') + tiposAgendadosComValor.map(t => linhaHtml({ titulo: t, valor: s => s.porTipo[t]?.agendados || 0 })).join('')
     : '';
 
-  cont.innerHTML = `<table class="tabela-exportar-pdf"><thead>${cabecalho}</thead><tbody>${corpoPrincipal}${corpoMotivos}</tbody></table>`;
+  const corpoNaoAgendadosPorTipo = tiposNaoAgendadosComValor.length
+    ? linhaGrupo('Não agendamentos por tipo') + tiposNaoAgendadosComValor.map(t => linhaHtml({ titulo: t, valor: s => s.porTipo[t]?.naoAgendados || 0 })).join('')
+    : '';
+
+  const corpoMotivos = motivosTop5.length
+    ? linhaGrupo('Principais motivos de desmarque/não agendamento') + motivosTop5.map(m => linhaHtml({ titulo: m, valor: s => s.porMotivo[m] || 0 })).join('')
+    : '';
+
+  cont.innerHTML = `<table class="tabela-exportar-pdf"><thead>${cabecalho}</thead><tbody>${corpoPrincipal}${corpoAgendadosPorTipo}${corpoNaoAgendadosPorTipo}${corpoMotivos}</tbody></table>`;
 }
 
 function renderRelatorios() {
