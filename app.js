@@ -2398,13 +2398,40 @@ document.getElementById('btn-exportar-pdf').addEventListener('click', () => wind
 let relatorioMotivoFiltroTipo = 'todos';
 let relatorioMotivoFiltroPeriodoKey = null;
 let relatorioStatsAtual = null;
+let relatorioMesReferenciaAtual = null; // mês do relatório que tá na tela, pra clicar num motivo levar pro mês certo
 
 document.getElementById('relatorio-motivos').addEventListener('click', ev => {
   const chip = ev.target.closest('.motivo-filtro-chip');
-  if (!chip || !relatorioStatsAtual) return;
-  relatorioMotivoFiltroTipo = chip.dataset.tipo;
-  renderMotivosRelatorio(relatorioStatsAtual);
+  if (chip && relatorioStatsAtual) {
+    relatorioMotivoFiltroTipo = chip.dataset.tipo;
+    renderMotivosRelatorio(relatorioStatsAtual);
+    return;
+  }
+  const item = ev.target.closest('.motivo-resumo-item');
+  if (item) irParaAgendamentosComMotivoRelatorio(item.dataset.motivo);
 });
+
+// Clicar num motivo no resumo ("Sem Resposta 11" etc.) leva direto pra tabela
+// de Agendamentos, no mês deste relatório, já filtrada por aquele motivo —
+// mostra TODO mundo com esse motivo (não só quem tem observação escrita, que
+// é só o que a lista "Detalhes" logo abaixo mostra)
+function irParaAgendamentosComMotivoRelatorio(motivo) {
+  if (!relatorioMesReferenciaAtual) return;
+  const mesKey = mesKeyDe(relatorioMesReferenciaAtual);
+  const [ano, mes] = mesKey.split('-').map(Number);
+  currentDate = new Date(ano, mes - 1, 1);
+  filtros = { busca: '', status: '', tipo: '', cidade: '', clinica: '', motivo: motivo, iniciativa: '', periodo: '' };
+  const busca = document.getElementById('filtro-busca'); if (busca) busca.value = '';
+  const selStatus = document.getElementById('filtro-status'); if (selStatus) selStatus.value = '';
+  const selTipo = document.getElementById('filtro-tipo'); if (selTipo) selTipo.value = '';
+  const selCidade = document.getElementById('filtro-cidade'); if (selCidade) selCidade.value = '';
+  const selClinica = document.getElementById('filtro-clinica'); if (selClinica) selClinica.value = '';
+  const selMotivo = document.getElementById('filtro-motivo'); if (selMotivo) selMotivo.value = motivo;
+  const selIniciativa = document.getElementById('filtro-iniciativa'); if (selIniciativa) selIniciativa.value = '';
+  const btn7 = document.getElementById('btn-filtro-7dias'); if (btn7) btn7.classList.remove('ativo');
+  navegarParaAba('agendamentos');
+  atualizarBotaoLimparFiltros();
+}
 
 // ---- Observação do relatório: texto rico por período (negrito/sublinhado/
 // tamanho só no trecho selecionado, igual um editor de texto normal), com
@@ -2671,7 +2698,7 @@ function renderMotivosRelatorio(stats) {
 
   const motivosComValor = Object.entries(stats.porMotivo).filter(([,v]) => v > 0);
   const htmlResumo = motivosComValor.length
-    ? `<div class="relatorio-motivos-resumo">${motivosComValor.map(([m,v]) => `<div class="linha"><span>${escapeHtml(m)}</span><b>${v}</b></div>`).join('')}</div>`
+    ? `<div class="relatorio-motivos-resumo">${motivosComValor.map(([m,v]) => `<button type="button" class="motivo-resumo-item" data-motivo="${escapeHtml(m)}" title="Ver os contatos com este motivo"><span>${escapeHtml(m)}</span><b>${v}</b></button>`).join('')}</div>`
     : '';
 
   // filtro por tipo (Consulta/Acompanhamento/Cirurgia...) só na lista de
@@ -2882,6 +2909,7 @@ function renderRelatorios() {
   }
 
   document.getElementById('relatorio-titulo').textContent = tituloRelatorio;
+  relatorioMesReferenciaAtual = mesReferenciaExportar;
   renderCardsRelatorio(stats, statsAnt);
   document.getElementById('relatorio-texto').innerHTML = montarTextoRelatorio(stats, statsAnt, emAnterior, aAnterior).map(p => `<p>${escapeHtml(p)}</p>`).join('');
   // o filtro por tipo da lista de motivos volta pra "Todos" sozinho só quando

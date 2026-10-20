@@ -205,8 +205,11 @@
   .obs-tbtn-sep{width:1px;height:20px;background:var(--borda);margin:0 2px;}
   .painel-secao .sub{font-size:13px;color:var(--texto-claro);}
   .relatorio-motivos-resumo{display:flex;flex-wrap:wrap;gap:10px 22px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--borda);}
-  .relatorio-motivos-resumo .linha{display:flex;align-items:center;gap:7px;font-size:13px;}
-  .relatorio-motivos-resumo .linha b{color:var(--verde-pinho);background:var(--creme);border-radius:999px;padding:1px 9px;font-size:12.5px;}
+  /* cada motivo (ex.: "Sem Resposta 11") é um botão: clicar leva direto pros
+     contatos com esse motivo na aba Agendamentos, por isso tem hover/cursor */
+  .motivo-resumo-item{display:flex;align-items:center;gap:7px;font:inherit;font-size:13px;background:transparent;border:none;color:var(--texto);padding:4px 8px;margin:-4px -8px;border-radius:9px;cursor:pointer;transition:.12s;}
+  .motivo-resumo-item:hover{background:var(--creme-escuro);color:var(--marrom-escuro);}
+  .motivo-resumo-item b{color:var(--verde-pinho);background:var(--creme);border-radius:999px;padding:1px 9px;font-size:12.5px;}
   .relatorio-motivos-filtro{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
   .motivo-filtro-chip{font-family:'Quicksand',sans-serif;padding:6px 14px;border-radius:999px;border:1.5px solid var(--borda);background:transparent;color:var(--texto);font-size:12px;font-weight:700;cursor:pointer;transition:.15s;}
   .motivo-filtro-chip:hover{border-color:var(--verde-pinho);color:var(--verde-pinho);}
