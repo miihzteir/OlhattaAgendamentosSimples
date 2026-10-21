@@ -1868,6 +1868,7 @@ function renderTabela(mesKey) {
       ${celObsClicavel(e.obs, '', 'Observação')}
       <td class="acoes">
         <button class="btn outline sm btn-editar">Editar</button>
+        ${e.status === 'Agendado' ? '<button class="btn azul sm btn-reagendar" title="Desmarcar esta vaga e já criar o novo agendamento">↻ Reagendar</button>' : ''}
         ${e.status === 'Agendado' ? '<button class="btn vermelho sm btn-desmarcar" title="Desmarcar e escolher o motivo">✕ Desmarcar</button>' : ''}
       </td>
     </tr>
@@ -1890,6 +1891,19 @@ function renderTabela(mesKey) {
       const entry = state.entries.find(e => e.id === id);
       if (!entry) return;
       abrirModalEntry(Object.assign({}, entry, { status: 'Desmarcou' }));
+    });
+  });
+
+  // Atalho "↻ Reagendar": desmarca a vaga atual (motivo "Remarcou", pra ela
+  // enxergar depois quem fica remarcando toda hora) e já cria o novo
+  // agendamento com os mesmos dados do cliente, abrindo pronto pra ela só
+  // escolher a nova data
+  corpo.querySelectorAll('.btn-reagendar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('tr').dataset.id;
+      const entry = state.entries.find(e => e.id === id);
+      if (!entry) return;
+      reagendarContato(entry);
     });
   });
 
@@ -2131,6 +2145,57 @@ function duplicarContato(entry) {
   document.getElementById('f-mesmo-contato').checked = true;
   atualizarPainelHistorico();
   document.getElementById('f-animal').focus();
+}
+
+// Atalho "↻ Reagendar": a vaga atual vira Desmarcou com o motivo "Remarcou"
+// (categoria criada sozinha se ainda não existir) — assim dá pra ver no
+// relatório, clicando nesse motivo, quem fica remarcando toda hora — e já
+// nasce um novo agendamento com os mesmos dados do cliente, só com a data
+// em branco, aberto na hora pra ela preencher a nova data/horário
+function reagendarContato(entry) {
+  const MOTIVO_REMARCOU = 'Remarcou';
+  const garantirMotivo = state.categorias.motivos.includes(MOTIVO_REMARCOU)
+    ? Promise.resolve()
+    : adicionarCategoria('motivos', MOTIVO_REMARCOU).then(() => {
+        if (!state.categorias.motivos.includes(MOTIVO_REMARCOU)) state.categorias.motivos.push(MOTIVO_REMARCOU);
+      });
+
+  const ref = entriesCol.doc();
+  const novoDados = {
+    id: ref.id,
+    nome: entry.nome || '',
+    telefone: entry.telefone || '',
+    animal: entry.animal || '',
+    mesmoContatoOutroAnimal: false,
+    nome2: entry.nome2 || '',
+    telefone2: entry.telefone2 || '',
+    indicacao: entry.indicacao || '',
+    clinica: entry.clinica || '',
+    cidade: entry.cidade || '',
+    tipo: entry.tipo || '',
+    dataContato: hojeStr(),
+    iniciativa: entry.iniciativa || 'cliente',
+    status: 'Agendado',
+    dataAgendamento: '',
+    horario: '',
+    motivo: '',
+    detalheMotivo: '',
+    obs: entry.obs || '',
+    criadoEm: new Date().toISOString()
+  };
+
+  garantirMotivo
+    .then(() => Promise.all([
+      atualizarContato(entry.id, Object.assign({}, entry, { status: 'Desmarcou', motivo: MOTIVO_REMARCOU })),
+      ref.set(novoDados)
+    ]))
+    .then(() => {
+      mostrarToast('Vaga desmarcada — escolha a nova data do reagendamento');
+      abrirModalEntry(novoDados);
+      const campoData = document.getElementById('f-data2');
+      if (campoData) campoData.focus();
+    })
+    .catch(err => mostrarToast('Não foi possível remarcar: ' + err.message));
 }
 
 document.getElementById('form-entry').addEventListener('submit', ev => {
