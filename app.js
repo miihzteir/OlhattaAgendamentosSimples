@@ -67,6 +67,21 @@ let nfNomeSincronizado = true; // enquanto true, "Nome completo (NF)" copia o qu
 const ABAS_VALIDAS = ['inicio', 'agendamentos', 'metas', 'anual', 'relatorios', 'notas'];
 const SUBABAS_VALIDAS = { relatorios: ['mensal', 'semanal'] };
 
+// nome de cada aba pro título da aba do navegador acompanhar a tela aberta
+// ("Relatórios · Agenda Olhatta"); na Início fica só o nome do app, sem
+// repetir "Início" no título
+const NOMES_ABA = {
+  inicio: 'Início',
+  agendamentos: 'Agendamentos',
+  metas: 'Metas',
+  anual: 'Comparativo Anual',
+  relatorios: 'Relatórios',
+  notas: 'Notas Fiscais'
+};
+function atualizarTituloAba() {
+  document.title = abaAtiva === 'inicio' ? 'Agenda Olhatta' : `${NOMES_ABA[abaAtiva] || ''} · Agenda Olhatta`;
+}
+
 // lê a aba (e a subaba, se tiver) do endereço do site; se o link foi
 // aberto com algo tipo ".../#relatorios/semanal", já abre direto lá — a
 // subaba lida aqui já atualiza relatorioModo também
@@ -767,6 +782,7 @@ function renderAba() {
   document.getElementById('aba-anual').hidden = abaAtiva !== 'anual';
   document.getElementById('aba-relatorios').hidden = abaAtiva !== 'relatorios';
   document.querySelectorAll('nav.abas button').forEach(b => b.classList.toggle('ativa', b.dataset.aba === abaAtiva));
+  atualizarTituloAba();
   if (abaAtiva === 'inicio') renderInicio();
   else if (abaAtiva === 'agendamentos' || abaAtiva === 'metas') renderAgendamentos();
   else if (abaAtiva === 'notas') { if (carregouNfDoc && carregouNfEntries) renderNotas(); }
